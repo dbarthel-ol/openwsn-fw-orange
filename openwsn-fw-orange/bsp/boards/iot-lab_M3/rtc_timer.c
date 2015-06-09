@@ -27,6 +27,7 @@ volatile rtc_timer_vars_t rtc_timer_vars;
 //===== admin
 
 void rtc_timer_init() {
+   // clear local variables
    rtc_timer_vars.alarm_cb = NULL;
 }
 

@@ -14,6 +14,7 @@
 //#include "ADC_Channel.h"
 #include "idmanager.h"
 #include "IEEE802154E.h"
+#include "observer.h"
 
 //=========================== defines =========================================
 
@@ -47,6 +48,7 @@ void cexample_init() {
    cexample_vars.desc.path1len             = 0;
    cexample_vars.desc.path1val             = NULL;
    cexample_vars.desc.componentID          = COMPONENT_CEXAMPLE;
+   cexample_vars.desc.discoverable         = TRUE;
    cexample_vars.desc.callbackRx           = &cexample_receive;
    cexample_vars.desc.callbackSendDone     = &cexample_sendDone;
    

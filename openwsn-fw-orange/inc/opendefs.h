@@ -62,6 +62,7 @@ enum {
    IANA_IPv6HOPOPT                     = 0x00,
    IANA_TCP                            = 0x06,
    IANA_UDP                            = 0x11,
+   IANA_IPv6ROUTING                    = 0x03,
    IANA_IPv6ROUTE                      = 0x2b,//used for source routing
    IANA_ICMPv6                         = 0x3a,
    IANA_ICMPv6_ECHO_REQUEST            =  128,
@@ -85,6 +86,7 @@ enum {
    //UDP
    WKP_UDP_COAP                        =  5683,
    WKP_UDP_ECHO                        =     7,
+   WKP_UDP_INJECT                      =  2000,
    WKP_UDP_RINGMASTER                  = 15000,
 };
 
@@ -151,13 +153,17 @@ enum {
    COMPONENT_CEXAMPLE                  = 0x1b,
    COMPONENT_CINFO                     = 0x1c,
    COMPONENT_CLEDS                     = 0x1d,
-   COMPONENT_CSTORM                    = 0x1e,
-   COMPONENT_CWELLKNOWN                = 0x1f,
-   COMPONENT_TECHO                     = 0x20,
-   COMPONENT_TOHLONE                   = 0x21,
-   COMPONENT_UECHO                     = 0x22,
-   COMPONENT_RRT                       = 0x23,
+   COMPONENT_CSENSORS                  = 0x1e,
+   COMPONENT_CSTORM                    = 0x1f,
+   COMPONENT_CWELLKNOWN                = 0x20,
+   COMPONENT_TECHO                     = 0x21,
+   COMPONENT_TOHLONE                   = 0x22,
+   COMPONENT_UECHO                     = 0x23,
+   COMPONENT_UINJECT                   = 0x24,
+   COMPONENT_RRT                       = 0x25,
 };
+
+
 
 enum {
    //Applications
@@ -297,6 +303,7 @@ enum {
 #define ENTITY_LINK_LEVEL                  2
 #define ENTITY_RADIO_LEVEL                 1
 
+
 /**
 \brief error codes used throughout the OpenWSN stack
 
@@ -401,7 +408,9 @@ END_PACK
 typedef struct {
    //admin
    uint8_t       creator;                        // the component which called getFreePacketBuffer()
+
    uint8_t       id;                             // unique ID, used by the observer library
+
    uint8_t       owner;                          // the component which currently owns the entry
    uint8_t*      payload;                        // pointer to the start of the payload within 'packet'
    uint8_t       length;                         // length in bytes of the payload
@@ -430,6 +439,7 @@ typedef struct {
    uint8_t*      l2_ASNpayload;                  // pointer to the ASN in EB
    uint8_t       l2_joinPriority;                // the join priority received in EB
    bool          l2_IEListPresent;               //did have IE field?
+   bool          l2_payloadIEpresent;            // did I have payload IE field
    bool          l2_joinPriorityPresent;
    //l1 (drivers)
    uint8_t       l1_txPower;                     // power for packet to Tx at
@@ -440,9 +450,12 @@ typedef struct {
    uint8_t       packet[1+1+125+2+1];            // 1B spi address, 1B length, 125B data, 2B CRC, 1B LQI
 } OpenQueueEntry_t;
 
+
 BEGIN_PACK
 typedef struct {
+
    uint8_t          id;
+
    bool             used;
    uint8_t          parentPreference;
    bool             stableNeighbor;
@@ -458,6 +471,7 @@ typedef struct {
    uint8_t          joinPrio;
 } neighborRow_t;
 END_PACK
+
 
 //=========================== variables =======================================
 

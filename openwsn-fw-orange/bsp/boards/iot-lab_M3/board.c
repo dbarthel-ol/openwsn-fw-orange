@@ -31,8 +31,6 @@ int main(void)
 
 void board_init()
 {
-
-
   RCC_Configuration();//Configure rcc
   NVIC_Configuration();//configure NVIC and Vector Table
   

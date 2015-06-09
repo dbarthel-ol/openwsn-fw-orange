@@ -57,6 +57,7 @@ void tohlone_sendpkt() {
    
    packetfunctions_reserveHeaderSize(tohlone_vars.pkt, buffer_len);
    memcpy(tohlone_vars.pkt->payload, buffer, buffer_len);
+   
    if ((opentcp_send(tohlone_vars.pkt))==E_FAIL) {
       openqueue_freePacketBuffer(tohlone_vars.pkt);
       opentcp_close();

@@ -329,11 +329,13 @@ void DMA1_Channel3_IRQHandler(void)
 *******************************************************************************/
 void DMA1_Channel4_IRQHandler(void)
 {
-  if (DMA_GetITStatus(DMA1_IT_TC4))
+#ifdef SENSORLAB
+    if (DMA_GetITStatus(DMA1_IT_TC4))
   {
     DMA_ClearITPendingBit(DMA1_IT_TC4);
     uart_dma_tx_complete_isr();
   }
+#endif
 }
 
 /*******************************************************************************
@@ -455,6 +457,7 @@ void TIM1_BRK_IRQHandler(void)
 * Input          : None
 * Output         : None
 * Return         : None
+
 *******************************************************************************/
 void TIM1_UP_IRQHandler(void)
 {

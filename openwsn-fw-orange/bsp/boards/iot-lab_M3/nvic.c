@@ -35,6 +35,7 @@ void NVIC_uart(void)
   NVIC_Init(&NVIC_InitStructure);
 }
 
+#ifdef SENSORLAB
 //configuration DMA interrput
 void NVIC_dma(void)
 {
@@ -46,6 +47,7 @@ void NVIC_dma(void)
   NVIC_InitStructure.NVIC_IRQChannelCmd                 = ENABLE;
   NVIC_Init(&NVIC_InitStructure);
 }
+#endif
 
 //configuration spi interrput
 void NVIC_spi(void)

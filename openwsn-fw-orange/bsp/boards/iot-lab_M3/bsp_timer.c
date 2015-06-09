@@ -39,6 +39,7 @@ void bsp_timer_init()
     // clear local variables
     bsp_timer_vars.cb = NULL;
     bsp_timer_vars.last_compare_value = (PORT_TIMER_WIDTH)0;
+
     
     //Configure TIM2, Clock
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2 , ENABLE);

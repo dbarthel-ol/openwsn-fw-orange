@@ -22,7 +22,7 @@
 #define TX_POWER                    31 // 1=-25dBm, 31=0dBm (max value)
 #define RESYNCHRONIZATIONGUARD       5 // in 32kHz ticks. min distance to the end of the slot to successfully synchronize
 #define US_PER_TICK                 30 // number of us per 32kHz clock tick
-#define ADVTIMEOUT                  30 // in seconds: sending ADV every 30 seconds
+#define EBTIMEOUT                  30 // in seconds: sending EB every 30 seconds
 #define MAXKAPERIOD               2000 // in slots: @15ms per slot -> ~30 seconds. Max value used by adaptive synchronization.
 #define DESYNCTIMEOUT             2333 // in slots: @15ms per slot -> ~35 seconds. A larger DESYNCTIMEOUT is needed if using a larger KATIMEOUT.
 #define LIMITLARGETIMECORRECTION     5 // threshold number of ticks to declare a timeCorrection "large"
@@ -71,6 +71,8 @@
 #define IEEE802154E_MLME_SLOTFRAME_LINK_IE_SUBID_SHIFT     1
 #define IEEE802154E_MLME_TIMESLOT_IE_SUBID                 0x1c
 #define IEEE802154E_MLME_TIMESLOT_IE_SUBID_SHIFT           1
+#define IEEE802154E_MLME_CHANNELHOPPING_IE_SUBID           0x09
+#define IEEE802154E_MLME_CHANNELHOPPING_IE_SUBID_SHIFT     1
 
 #define IEEE802154E_MLME_IE_GROUPID                        0x01
 #define IEEE802154E_ACK_NACK_TIMECORRECTION_ELEMENTID      0x1E
@@ -120,6 +122,9 @@ typedef enum {
    S_TXACK                   = 0x18,   // Tx ACK SFD received, sending bytes
    S_RXPROC                  = 0x19,   // processing received data
 } ieee154e_state_t;
+
+#define  TIMESLOT_TEMPLATE_ID         0x00
+#define  CHANNELHOPPING_TEMPLATE_ID   0x00
 
 // Atomic durations
 // expressed in 32kHz ticks:
@@ -182,7 +187,7 @@ typedef struct {
 } IEEE802154E_ACK_ht;
 
 // includes payload header IE short + MLME short Header + Sync IE
-#define ADV_PAYLOAD_LENGTH sizeof(payload_IE_ht) + \
+#define EB_PAYLOAD_LENGTH sizeof(payload_IE_ht) + \
                            sizeof(mlme_IE_ht)     + \
                            sizeof(sync_IE_ht)
 
@@ -206,6 +211,9 @@ typedef struct {
    // channel hopping
    uint8_t                   freq;                    // frequency of the current slot
    uint8_t                   asnOffset;               // offset inside the frame
+   // template ID
+   uint8_t                   tsTemplateId;            // timeslot template id
+   uint8_t                   chTemplateId;            // channel hopping tempalte id
    
    PORT_RADIOTIMER_WIDTH     radioOnInit;             // when within the slot the radio turns on
    PORT_RADIOTIMER_WIDTH     radioOnTics;             // how many tics within the slot the radio is on

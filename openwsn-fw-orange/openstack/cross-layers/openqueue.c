@@ -73,20 +73,21 @@ OpenQueueEntry_t* openqueue_getFreePacketBuffer(uint8_t creator) {
    
    // if you get here, I will try to allocate a buffer for you
    
+
    // walk through queue and find free entry
    for (i=0;i<QUEUELENGTH;i++) {
       if (openqueue_vars.queue[i].owner==COMPONENT_NULL) {
          openqueue_vars.queue[i].creator=creator;
-         openqueue_vars.queue[i].owner=creator;
+         openqueue_vars.queue[i].owner=COMPONENT_OPENQUEUE;
          openqueue_vars.queue[i].id = openqueue_vars.id++;
-
-         ENABLE_INTERRUPTS();
+         ENABLE_INTERRUPTS(); 
          return &openqueue_vars.queue[i];
       }
    }
    ENABLE_INTERRUPTS();
    return NULL;
 }
+
 
 /**
 \brief Reuse a previously-allocated packet buffer.
@@ -242,7 +243,7 @@ OpenQueueEntry_t* openqueue_macGetDataPacket(open_addr_t* toNeighbor) {
    return NULL;
 }
 
-OpenQueueEntry_t* openqueue_macGetAdvPacket() {
+OpenQueueEntry_t* openqueue_macGetEBPacket() {
    uint8_t i;
    INTERRUPT_DECLARATION();
    DISABLE_INTERRUPTS();
@@ -276,4 +277,5 @@ void openqueue_reset_entry(OpenQueueEntry_t* entry) {
    entry->l2_frameType                 = IEEE154_TYPE_UNDEFINED;
    entry->l2_retriesLeft               = 0;
    entry->l2_IEListPresent             = 0;
+   entry->l2_payloadIEpresent          = 0;
 }

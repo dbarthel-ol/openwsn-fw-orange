@@ -49,7 +49,7 @@ inline static void SLEEP_CLR(void) { GPIOA->BRR = 1<<2; }
 //=========================== public ==========================================
 
 void spi_init() {
- // clear variables
+  // clear variables
   spi_vars.pNextTxByte  = NULL;
   spi_vars.numTxedBytes = 0x00;
   spi_vars.txBytesLeft  = 0x00;
@@ -62,7 +62,7 @@ void spi_init() {
 #ifdef SPI_IN_INTERRUPT_MODE
   spi_vars.callback     = NULL;
 #endif
- 
+
   SPI_InitTypeDef  SPI_InitStructure;
 
   //enable SPI1, GPIOA, GPIOB and GPIOC, Clock

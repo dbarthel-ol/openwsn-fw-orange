@@ -22,8 +22,10 @@
 #define HDLC_FLAG            0x7e
 #define HDLC_ESCAPE          0x7d
 #define HDLC_ESCAPE_MASK     0x20
+#ifdef SENSORLAB
 #define HDLC_FLAG_ESCAPED    0x5e
 #define HDLC_ESCAPE_ESCAPED  0x5d
+#endif
 #define HDLC_CRCINIT         0xffff
 #define HDLC_CRCGOOD         0xf0b8
 

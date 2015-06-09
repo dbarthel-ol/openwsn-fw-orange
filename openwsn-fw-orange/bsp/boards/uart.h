@@ -27,8 +27,9 @@ typedef enum {
 
 typedef void (*uart_tx_cbt)(void);
 typedef void (*uart_rx_cbt)(void);
+#ifdef SENSORLAB
 typedef void (*uart_tx_completed_cbt)(uint16_t bytes_written);
-
+#endif
 
 //=========================== variables =======================================
 
@@ -46,12 +47,14 @@ uint8_t uart_readByte(void);
 // interrupt handlers
 kick_scheduler_t uart_tx_isr(void);
 kick_scheduler_t uart_rx_isr(void);
+#ifdef SENSORLAB
 kick_scheduler_t uart_dma_tx_complete_isr(void);
 
 
 // DMA related handlers
 bool uart_DMA_available(void);
 void uart_DMA_write(void* buffer, uint16_t buffer_size, uart_tx_completed_cbt callback);
+#endif
 
 /**
 \}
