@@ -21,6 +21,9 @@ void NVIC_Configuration(void);
 
 //configuration module interrput on openmotestm32 
 void NVIC_uart(void);
+#ifdef SENSORLAB
+void NVIC_dma(void);
+#endif
 void NVIC_spi(void);
 void NVIC_bsptimer(void);
 void NVIC_rtctimer(void);

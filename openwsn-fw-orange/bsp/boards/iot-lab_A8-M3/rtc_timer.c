@@ -28,7 +28,7 @@ volatile rtc_timer_vars_t rtc_timer_vars;
 
 void rtc_timer_init() {
    // clear local variables
-   memset(&rtc_timer_vars,0,sizeof(rtc_timer_vars_t));
+   rtc_timer_vars.alarm_cb = NULL;
 }
 
 void rtc_timer_setAlarmCb(rtc_timer_alarm_cbt cb) {

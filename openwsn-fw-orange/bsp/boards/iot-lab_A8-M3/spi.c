@@ -49,8 +49,19 @@ inline static void SLEEP_CLR(void) { GPIOA->BRR = 1<<2; }
 //=========================== public ==========================================
 
 void spi_init() {
- // clear variables
-  memset(&spi_vars,0,sizeof(spi_vars_t));
+  // clear variables
+  spi_vars.pNextTxByte  = NULL;
+  spi_vars.numTxedBytes = 0x00;
+  spi_vars.txBytesLeft  = 0x00;
+  spi_vars.returnType   = SPI_FIRSTBYTE;
+  spi_vars.pNextRxByte  = NULL;
+  spi_vars.maxRxBytes   = 0x00;
+  spi_vars.isFirst      = SPI_NOTFIRST;
+  spi_vars.isLast       = SPI_NOTLAST;
+  spi_vars.busy         = 0x00;
+#ifdef SPI_IN_INTERRUPT_MODE
+  spi_vars.callback     = NULL;
+#endif
  
   SPI_InitTypeDef  SPI_InitStructure;
 

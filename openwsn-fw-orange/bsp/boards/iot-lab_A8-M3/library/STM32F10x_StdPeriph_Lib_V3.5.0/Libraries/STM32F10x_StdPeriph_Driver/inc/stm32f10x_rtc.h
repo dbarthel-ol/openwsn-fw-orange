@@ -107,6 +107,7 @@ uint32_t  RTC_GetCounter(void);
 void RTC_SetCounter(uint32_t CounterValue);
 void RTC_SetPrescaler(uint32_t PrescalerValue);
 void RTC_SetAlarm(uint32_t AlarmValue);
+u32 RTC_GetAlarm(void);
 uint32_t  RTC_GetDivider(void);
 void RTC_WaitForLastTask(void);
 void RTC_WaitForSynchro(void);

@@ -35,6 +35,20 @@ void NVIC_uart(void)
   NVIC_Init(&NVIC_InitStructure);
 }
 
+#ifdef SENSORLAB
+//configuration DMA interrput
+void NVIC_dma(void)
+{
+  //Configure NVIC: Preemption Priority = 3 and Sub Priority = 3
+  NVIC_InitTypeDef  NVIC_InitStructure;
+  NVIC_InitStructure.NVIC_IRQChannel                    = DMA1_Channel4_IRQn;
+  NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority  = 1;
+  NVIC_InitStructure.NVIC_IRQChannelSubPriority         = 1;
+  NVIC_InitStructure.NVIC_IRQChannelCmd                 = ENABLE;
+  NVIC_Init(&NVIC_InitStructure);
+}
+#endif
+
 //configuration spi interrput
 void NVIC_spi(void)
 {
