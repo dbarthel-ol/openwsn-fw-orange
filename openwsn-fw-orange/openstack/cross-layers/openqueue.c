@@ -98,6 +98,7 @@ OpenQueueEntry_t* openqueue_getFreePacketBuffer(uint8_t creator) {
 \returns E_FAIL when the specified packet buffer is not in use.
 */
 owerror_t openqueue_reusePacketBuffer(OpenQueueEntry_t* pkt){
+#ifdef SENSORLAB
   INTERRUPT_DECLARATION();
   if (pkt->owner==COMPONENT_NULL) {
     return E_FAIL;
@@ -105,6 +106,9 @@ owerror_t openqueue_reusePacketBuffer(OpenQueueEntry_t* pkt){
     pkt->id = openqueue_vars.id++;
     return E_SUCCESS;
   }
+#else
+    return E_SUCCESS;
+#endif
 }
 
 

@@ -81,7 +81,7 @@ owerror_t cstorm_receive(
       case COAP_CODE_REQ_GET:
          
          // reset packet payload
-         owsn_observer_frame_consume();
+         owsn_observer_frame_consume(msg);
          openqueue_reusePacketBuffer(msg);
          msg->payload             = &(msg->packet[127]);
          msg->length              = 0;
@@ -124,7 +124,7 @@ owerror_t cstorm_receive(
             */
             
             // reset packet payload
-            owsn_observer_frame_consume();
+            owsn_observer_frame_consume(msg);
             openqueue_reusePacketBuffer(msg);
             msg->payload             = &(msg->packet[127]);
             msg->length              = 0;
