@@ -40,9 +40,7 @@ void      forwarding_createRplOption(
    uint8_t              flags
 );
 
-#ifdef FLOW_LABEL_RPL_DOMAIN
-void forwarding_createFlowLabel(uint32_t* flow_label,uint8_t flags);
-#endif
+
 //=========================== public ==========================================
 
 /**
@@ -96,38 +94,43 @@ owerror_t forwarding_send(OpenQueueEntry_t* msg) {
       0x00              // flags
    );
 
-#ifdef FLOW_LABEL_RPL_DOMAIN
-   forwarding_createFlowLabel(&flow_label,0x00);
-#endif
-   
-   //tengfei: IPHC inner header and NHC IPv6 header will be added at here
-   iphc_prependIPv6Header(
-      msg,
-      IPHC_TF_ELIDED,
-      flow_label,
-      IPHC_NH_INLINE,
-      IANA_ICMPv6,
-      IPHC_HLIM_64,
-      ipv6_outer_header.hop_limit,
-      IPHC_CID_NO,
-      IPHC_SAC_STATELESS,
-      IPHC_SAM_64B,
-      IPHC_M_NO,
-      IPHC_DAC_STATELESS,
-      IPHC_DAM_ELIDED,
-      &(msg->l3_destinationAdd),
-      &(msg->l3_sourceAdd),            
-      PCKTSEND
-   );
-   // preprend NHC ipv6 next header
-   packetfunctions_reserveHeaderSize(msg,sizeof(uint8_t));
-   *((uint8_t*)(msg->payload)) = (uint8_t)(NHC_IPv6EXT_ID + \
-                                 (uint8_t)(NHC_EID_IPv6_VAL << 1) + \
-                                 (uint8_t)(NHC_NH_INLINE));
-//   msg->l4_protocol                         = *((uint8_t*)(msg->payload));
-   // for IPHC outer header its next header is option hopByhop header OR NHC ipv6.
-   // both of them are compressed
-   ipv6_outer_header.next_header_compressed = TRUE;
+
+   // inner header is required only when the destination address is NOT broadcast address
+   if (packetfunctions_isBroadcastMulticast(&(msg->l3_destinationAdd)) == FALSE) {
+       //IPHC inner header and NHC IPv6 header will be added at here
+       iphc_prependIPv6Header(
+          msg,
+          IPHC_TF_ELIDED,
+          flow_label,
+          // we should pass the parameter "msg->l4_protocol_compressed" here.
+          // but since currectly the upper layers doesn't set the l4_protocol_compressed
+          // parameter and the OPENQUEUE COMPONEN didn't reset this value either. So using 
+          // "msg->l4_protocol_compressed" here may cause wrong result. 
+          // Using IPHC_NH_INLINE instead temporarily. This should be fixed later.
+          IPHC_NH_INLINE, 
+          msg->l4_protocol,
+          IPHC_HLIM_64,
+          ipv6_outer_header.hop_limit,
+          IPHC_CID_NO,
+          IPHC_SAC_STATELESS,
+          IPHC_SAM_64B,
+          IPHC_M_NO,
+          IPHC_DAC_STATELESS,
+          IPHC_DAM_ELIDED,
+          &(msg->l3_destinationAdd),
+          &(msg->l3_sourceAdd),            
+          PCKTSEND
+       );
+       // preprend NHC ipv6 next header
+       packetfunctions_reserveHeaderSize(msg,sizeof(uint8_t));
+       *((uint8_t*)(msg->payload)) = (uint8_t)(NHC_IPv6EXT_ID + \
+                                     (uint8_t)(NHC_EID_IPv6_VAL << 1) + \
+                                     (uint8_t)(NHC_NH_INLINE));
+       //   msg->l4_protocol                         = *((uint8_t*)(msg->payload));
+       // for IPHC outer header its next header is option hopByhop header OR NHC ipv6.
+       // both of them are compressed
+       ipv6_outer_header.next_header_compressed = TRUE;
+   }
 
    return forwarding_send_internal_RoutingTable(
       msg,
@@ -226,6 +229,7 @@ void forwarding_receive(
    // report to observer
    observer_frame_data_update(COMPONENT_ICMPv6RPL, msg->id, msg->length, msg->payload);
 
+
    if (
          (
             idmanager_isMyAddress(&ipv6_outer_header->dest)
@@ -237,10 +241,13 @@ void forwarding_receive(
       ) {
       // this packet is for me, no source routing header.
       // toss ipv6 NHC header
-      packetfunctions_tossHeader(msg,sizeof(uint8_t));
-      msg->l4_protocol = ipv6_inner_header->next_header;
-      // toss iphc inner header
-      packetfunctions_tossHeader(msg,ipv6_inner_header->header_length);
+      if (packetfunctions_isBroadcastMulticast(&ipv6_outer_header->dest)==FALSE) {
+          packetfunctions_tossHeader(msg,sizeof(uint8_t));
+          msg->l4_protocol = ipv6_inner_header->next_header;
+          msg->l4_protocol_compressed = ipv6_inner_header->next_header_compressed;
+          // toss iphc inner header
+          packetfunctions_tossHeader(msg,ipv6_inner_header->header_length);
+      }
           
       // indicate received packet to upper layer
       switch(msg->l4_protocol) {
@@ -275,14 +282,9 @@ void forwarding_receive(
       if (ipv6_outer_header->next_header!=IANA_IPv6ROUTE) {
          // no source routing header present
          //check if flow label rpl header
-    	 #ifdef FLOW_LABEL_RPL_DOMAIN             
-             flags = (uint8_t)((uint32_t)((ipv6_outer_header->flow_label)>>16)&0xFF);
-             senderRank = (uint16_t)((uint32_t)(ipv6_outer_header->flow_label)>>8)&0xFFFF;
-             senderRank = senderRank*MINHOPRANKINCREASE;//shift it according to HopRank Increase
-         #else
-    	     flags = rpl_option->flags;
-    	     senderRank = rpl_option->senderRank;
-    	 #endif
+
+ 	     flags = rpl_option->flags;
+  	     senderRank = rpl_option->senderRank;
 
          if ((flags & O_FLAG)!=0){
             // wrong direction
@@ -298,15 +300,9 @@ void forwarding_receive(
          
 
          if (senderRank < neighbors_getMyDAGrank()){
-            // loop
-            
+            // loop detected
             // set flag
-            #ifdef FLOW_LABEL_RPL_DOMAIN
-        	    flags |= R_FLAG;
-        	    ipv6_outer_header->flow_label|= ((uint32_t)flags<<16);
-            #else
-        	    rpl_option->flags |= R_FLAG;
-            #endif
+       	    rpl_option->flags |= R_FLAG;
 
             // log error
             openserial_printError(
@@ -319,10 +315,6 @@ void forwarding_receive(
          
 
          forwarding_createRplOption(rpl_option, rpl_option->flags);
-         #ifdef FLOW_LABEL_RPL_DOMAIN
-         // do not recreate flow label, relay the same but adding current flags
-         forwarding_createFlowLabel(&(ipv6_outer_header->flow_label),flags);
-         #endif
          // resend as if from upper layer
          if (
                forwarding_send_internal_RoutingTable(
@@ -503,6 +495,7 @@ owerror_t forwarding_send_internal_SourceRouting(
       // toss ipv6 NHC header
       packetfunctions_tossHeader(msg,sizeof(uint8_t));
       msg->l4_protocol = ipv6_inner_header->next_header;
+      msg->l4_protocol_compressed = ipv6_inner_header->next_header_compressed;
       // toss iphc inner header
       packetfunctions_tossHeader(msg,ipv6_inner_header->header_length);
       
@@ -693,14 +686,3 @@ void forwarding_createRplOption(rpl_option_ht* rpl_option, uint8_t flags) {
    rpl_option->senderRank         = neighbors_getMyDAGrank();
 }
 
-#ifdef FLOW_LABEL_RPL_DOMAIN
-void forwarding_createFlowLabel(uint32_t* flow_label,uint8_t flags){
-     uint8_t instanceId,flrank;
-     uint16_t rank;
-
-     instanceId=icmpv6rpl_getRPLIntanceID();
-     rank=neighbors_getMyDAGrank();
-     flrank=(uint8_t)(rank/MINHOPRANKINCREASE);
-     *flow_label = (uint32_t)instanceId | ((uint32_t)flrank<<8) | (uint32_t)flags<<16;
-}
-#endif

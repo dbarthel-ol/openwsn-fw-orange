@@ -13,6 +13,7 @@ settings
 *.pyc
 path.txt
 /build
+/images
 /.sconsign.dblite
 /firmware/openos/bsp/boards/python/*.def
 .directory

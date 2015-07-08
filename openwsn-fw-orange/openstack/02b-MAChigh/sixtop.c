@@ -14,6 +14,7 @@
 #include "leds.h"
 #include "processIE.h"
 #include "IEEE802154.h"
+#include "IEEE802154_security.h"
 #include "idmanager.h"
 #include "schedule.h"
 #include "observer.h"
@@ -123,6 +124,7 @@ void sixtop_init() {
    sixtop_vars.dsn                = 0;
    sixtop_vars.mgtTaskCounter     = 0;
    sixtop_vars.kaPeriod           = MAXKAPERIOD;
+   sixtop_vars.ebPeriod           = EBPERIOD;
    
    sixtop_vars.maintenanceTimerId = opentimers_start(
       sixtop_vars.periodMaintenance,
@@ -152,6 +154,14 @@ void sixtop_setKaPeriod(uint16_t kaPeriod) {
    } 
    observer_entity_property_update(COMPONENT_SIXTOP, 1);
    observer_property_update_uint16(PROPERTY_L25_KA_PERIOD, sixtop_vars.kaPeriod * PORT_TsSlotDuration / PORT_TICS_PER_MS);
+}
+
+void sixtop_setEBPeriod(uint8_t ebPeriod) {
+   if(ebPeriod < SIXTOP_MINIMAL_EBPERIOD) {
+      sixtop_vars.ebPeriod = SIXTOP_MINIMAL_EBPERIOD;
+   } else {
+      sixtop_vars.ebPeriod = ebPeriod;
+   } 
 }
 
 void sixtop_setHandler(six2six_handler_t handler) {
@@ -241,7 +251,8 @@ void sixtop_addCells(open_addr_t* neighbor, uint16_t numCells){
    
    // indicate IEs present
    pkt->l2_payloadIEpresent = TRUE;
-   // #TODO : report packet produce
+   // #TODO : report Observer packet produce
+   
    // send packet
    sixtop_send(pkt);
    
@@ -335,6 +346,7 @@ void sixtop_removeCell(open_addr_t* neighbor){
    pkt->l2_payloadIEpresent = TRUE;
    // report to observer
    owsn_observer_frame_produce(pkt, 0); 
+
    // send packet
    sixtop_send(pkt);
    
@@ -467,7 +479,12 @@ owerror_t sixtop_send(OpenQueueEntry_t *msg) {
    // set metadata
    msg->owner        = COMPONENT_SIXTOP;
    msg->l2_frameType = IEEE154_TYPE_DATA;
-   
+
+   // set l2-security attributes
+   msg->l2_securityLevel   = IEEE802154_SECURITY_LEVEL;
+   msg->l2_keyIdMode       = IEEE802154_SECURITY_KEYIDMODE; 
+   msg->l2_keyIndex        = IEEE802154_SECURITY_K2_KEY_INDEX;
+
    if (msg->l2_payloadIEpresent == FALSE) {
       return sixtop_send_internal(
          msg,
@@ -712,19 +729,13 @@ owerror_t sixtop_send_internal(
    msg->l2_numTxAttempts = 0;
    // transmit with the default TX power
    msg->l1_txPower = TX_POWER;
-   // record the location, in the packet, where the l2 payload starts
-   msg->l2_payload = msg->payload;
    // add a IEEE802.15.4 header
    ieee802154_prependHeader(msg,
                             msg->l2_frameType,
                             payloadIEPresent,
-                            IEEE154_SEC_NO_SECURITY,
                             msg->l2_dsn,
                             &(msg->l2_nextORpreviousHop)
                             );
-   // reserve space for 2-byte CRC
-   packetfunctions_reserveFooterSize(msg,2);
-   owsn_observer_frame_produce(msg,0);
    // change owner to IEEE802154E fetches it from queue
    msg->owner  = COMPONENT_SIXTOP_TO_IEEE802154E;
    return E_SUCCESS;
@@ -752,19 +763,19 @@ The body of this function executes one of the MAC management task.
 */
 void timer_sixtop_management_fired(void) {
    scheduleEntry_t* entry;
-   sixtop_vars.mgtTaskCounter = (sixtop_vars.mgtTaskCounter+1)%EBTIMEOUT;
+   sixtop_vars.mgtTaskCounter = (sixtop_vars.mgtTaskCounter+1)%sixtop_vars.ebPeriod;
    
    switch (sixtop_vars.mgtTaskCounter) {
       case 0:
-         // called every EBTIMEOUT seconds
+         // called every EBPERIOD seconds
          sixtop_sendEB();
          break;
       case 1:
-         // called every EBTIMEOUT seconds
+         // called every EBPERIOD seconds
          neighbors_removeOld();
          break;
       case 2:
-         // called every EBTIMEOUT seconds
+         // called every EBPERIOD seconds
          entry = schedule_statistic_poorLinkQuality();
          if (
              entry       != NULL                        && \
@@ -776,7 +787,7 @@ void timer_sixtop_management_fired(void) {
              sixtop_maintaining(entry->slotOffset,&(entry->neighbor));
          }
       default:
-         // called every second, except third times every EBTIMEOUT seconds
+         // called every second, except third times every EBPERIOD seconds
          sixtop_sendKA();
          break;
    }
@@ -846,7 +857,12 @@ port_INLINE void sixtop_sendEB() {
    
    //I has an IE in my payload
    eb->l2_payloadIEpresent = TRUE;
-   
+
+   // set l2-security attributes
+   eb->l2_securityLevel   = IEEE802154_SECURITY_LEVEL_BEACON;
+   eb->l2_keyIdMode       = IEEE802154_SECURITY_KEYIDMODE;
+   eb->l2_keyIndex        = IEEE802154_SECURITY_K1_KEY_INDEX;
+
    // put in queue for MAC to handle
    sixtop_send_internal(eb,eb->l2_payloadIEpresent);
    
@@ -908,6 +924,11 @@ port_INLINE void sixtop_sendKA() {
    kaPkt->l2_frameType = IEEE154_TYPE_DATA;
    memcpy(&(kaPkt->l2_nextORpreviousHop),kaNeighAddr,sizeof(open_addr_t));
    
+   // set l2-security attributes
+   kaPkt->l2_securityLevel   = IEEE802154_SECURITY_LEVEL;
+   kaPkt->l2_keyIdMode       = IEEE802154_SECURITY_KEYIDMODE;
+   kaPkt->l2_keyIndex        = IEEE802154_SECURITY_K2_KEY_INDEX;
+
    // put in queue for MAC to handle
    sixtop_send_internal(kaPkt,FALSE);
    
@@ -1043,7 +1064,7 @@ port_INLINE bool sixtop_processIEs(OpenQueueEntry_t* pkt, uint16_t * lenIE) {
    //candidate IE header  if type ==0 header IE if type==1 payload IE
    temp_8b = *((uint8_t*)(pkt->payload)+ptr);
    ptr++;
-   temp_16b = (temp_8b<<8) + (*((uint8_t*)(pkt->payload)+ptr));
+   temp_16b = temp_8b + ((*((uint8_t*)(pkt->payload)+ptr))<<8);
    ptr++;
    *lenIE = ptr;
    if(
@@ -1051,17 +1072,13 @@ port_INLINE bool sixtop_processIEs(OpenQueueEntry_t* pkt, uint16_t * lenIE) {
       IEEE802154E_DESC_TYPE_PAYLOAD_IE
    ){
    //payload IE - last bit is 1
-      len = 
-         (temp_16b & IEEE802154E_DESC_LEN_PAYLOAD_IE_MASK) >> 
-         IEEE802154E_DESC_LEN_PAYLOAD_IE_SHIFT;
+      len = temp_16b & IEEE802154E_DESC_LEN_PAYLOAD_IE_MASK;
       gr_elem_id = 
          (temp_16b & IEEE802154E_DESC_GROUPID_PAYLOAD_IE_MASK)>>
          IEEE802154E_DESC_GROUPID_PAYLOAD_IE_SHIFT;
    }else {
    //header IE - last bit is 0
-      len = 
-         (temp_16b & IEEE802154E_DESC_LEN_HEADER_IE_MASK)>>
-         IEEE802154E_DESC_LEN_HEADER_IE_SHIFT;
+      len = temp_16b & IEEE802154E_DESC_LEN_HEADER_IE_MASK;
       gr_elem_id = (temp_16b & IEEE802154E_DESC_ELEMENTID_HEADER_IE_MASK)>>
          IEEE802154E_DESC_ELEMENTID_HEADER_IE_SHIFT; 
    }
@@ -1076,7 +1093,7 @@ port_INLINE bool sixtop_processIEs(OpenQueueEntry_t* pkt, uint16_t * lenIE) {
            //read sub IE header
            temp_8b = *((uint8_t*)(pkt->payload)+ptr);
            ptr = ptr + 1;
-           temp_16b = (temp_8b << 8) + (*((uint8_t*)(pkt->payload)+ptr));
+           temp_16b = temp_8b + ((*((uint8_t*)(pkt->payload)+ptr))<<8);
            ptr = ptr + 1;
            len = len - 2; //remove header fields len
            if(
@@ -1084,17 +1101,13 @@ port_INLINE bool sixtop_processIEs(OpenQueueEntry_t* pkt, uint16_t * lenIE) {
               IEEE802154E_DESC_TYPE_LONG
               ){
               //long sub-IE - last bit is 1
-              sublen =
-                 (temp_16b & IEEE802154E_DESC_LEN_LONG_MLME_IE_MASK)>>
-                 IEEE802154E_DESC_LEN_LONG_MLME_IE_SHIFT;
+              sublen = temp_16b & IEEE802154E_DESC_LEN_LONG_MLME_IE_MASK;
               subid= 
                  (temp_16b & IEEE802154E_DESC_SUBID_LONG_MLME_IE_MASK)>>
                  IEEE802154E_DESC_SUBID_LONG_MLME_IE_SHIFT; 
            } else {
               //short IE - last bit is 0
-              sublen = 
-                 (temp_16b & IEEE802154E_DESC_LEN_SHORT_MLME_IE_MASK)>>
-                 IEEE802154E_DESC_LEN_SHORT_MLME_IE_SHIFT;
+              sublen = temp_16b & IEEE802154E_DESC_LEN_SHORT_MLME_IE_MASK;
               subid = (temp_16b & IEEE802154E_DESC_SUBID_SHORT_MLME_IE_MASK)>>
                  IEEE802154E_DESC_SUBID_SHORT_MLME_IE_SHIFT; 
            }
