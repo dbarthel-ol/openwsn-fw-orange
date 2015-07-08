@@ -12,10 +12,10 @@
 |               Sections                                                 |
 |:----------------------------------------------------------------------:|
 | [Foreword](#foreword)                                                  |
-| [Clone the repo]#(clone-the-repo)					 |
-| [Syncing with berkeley]#(syncing with berkeley)			 |
-| [Compile the code]#(compile the code)					 |
-| [Push to the forge]#(push to the forge)				 |
+| [Clone the repo](#clone-the-repo)					 |
+| [Syncing with berkeley](#syncing-with-berkeley)			 |
+| [Compile the code](#compile-the-code)					 |
+| [Push to the forge](#push-to-the-forge)				 |
 
 ## Foreword
 Some guidelines on the flow to use OpenWSN Firmware on ubuntu.
@@ -71,7 +71,7 @@ node/openwsn-fw-orange$ git commit -a -m "prepare syncing Orange FW with Berk fw
 ```
 DO NOT PUSH HERE TO YOUR FORK IF THE PROJECT IS NOT PUBLIC.
 ```
-node/openwsn-fw-orange$ #\!/#git push#/!\##
+node/openwsn-fw-orange$ #\!/#env GIT_SSL_NO_VERIFY=true git push#/!\##
 ```
 
 Download berkeley's current code: 
@@ -143,7 +143,7 @@ node$ node$ git commit -m "merge with sensorlab 07-07-2015"
 ```
 DO NOT PUSH HERE TO THE FORGE IF UNSURE OF THE RESULT.
 ```
-node$ #\!/#git push#/!\##
+node$ #\!/#env GIT_SSL_NO_VERIFY=true git push#/!\##
 ```
 
 
