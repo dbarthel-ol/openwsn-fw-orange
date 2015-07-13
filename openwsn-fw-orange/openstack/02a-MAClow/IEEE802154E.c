@@ -746,6 +746,7 @@ port_INLINE bool ieee154e_processIEs(OpenQueueEntry_t* pkt, uint16_t* lenIE) {
                   
                   if (idmanager_getIsDAGroot()==FALSE) {
                      // ASN
+                     owsn_observer_frame_property_add(pkt, 2);
                      asnStoreFromEB((uint8_t*)(pkt->payload)+ptr);
                      // ASN is known, but the frame length is not
                      // frame length will be known after parsing the frame and link IE
@@ -754,14 +755,15 @@ port_INLINE bool ieee154e_processIEs(OpenQueueEntry_t* pkt, uint16_t* lenIE) {
                      // join priority
                      joinPriorityStoreFromEB(*((uint8_t*)(pkt->payload)+ptr));
                      ptr = ptr + 1;
-                     owsn_observer_frame_property_add(pkt, 2);
-                     uint64_t obs_asn = (ieee154e_vars.asn.bytes0and1 << 24 && 0xffff000000)
+
+                     /*uint64_t obs_asn = (ieee154e_vars.asn.bytes0and1 << 24 && 0xffff000000)
                             + (ieee154e_vars.asn.bytes2and3 << 8 && 0x0000ffff00)
                             + (ieee154e_vars.asn.byte4 && 0x00000000ff);
                      observer_property_declaration_uint64( PROPERTY_L2_FRAME_ASN, PROPERTY_NAME_L2_FRAME_ASN, PREFIX_NONE, UNIT_NONE, obs_asn);
                      observer_property_declaration_uint8( PROPERTY_L2_FRAME_JOIN_PRIORITY, PROPERTY_NAME_L2_FRAME_JOIN_PRIORITY,
                                                             PREFIX_NONE, UNIT_NONE,
                                                             ieee154e_vars.dataReceived->l2_joinPriority);
+                                                            */
                   }
                   break;
                
@@ -1868,6 +1870,9 @@ port_INLINE uint16_t ieee154e_getTimeCorrection() {
 port_INLINE void joinPriorityStoreFromEB(uint8_t jp){
   ieee154e_vars.dataReceived->l2_joinPriority = jp;
   ieee154e_vars.dataReceived->l2_joinPriorityPresent = TRUE;     
+  observer_property_declaration_uint8( PROPERTY_L2_FRAME_JOIN_PRIORITY, PROPERTY_NAME_L2_FRAME_JOIN_PRIORITY,
+                                                            PREFIX_NONE, UNIT_NONE,
+                                                            jp);
 }
 
 // This function parses IEs from an EB to get to the ASN before security
@@ -1906,13 +1911,18 @@ bool isValidJoin(OpenQueueEntry_t* eb, ieee802154_header_iht *parsedHeader) {
 }
 
 port_INLINE void asnStoreFromEB(uint8_t* asn) {
-   
-   // store the ASN
+
+	uint8_t * obs_asn=NULL;
+
    ieee154e_vars.asn.bytes0and1   =     asn[0]+
                                     256*asn[1];
    ieee154e_vars.asn.bytes2and3   =     asn[2]+
                                     256*asn[3];
    ieee154e_vars.asn.byte4        =     asn[4];
+   
+   ieee154e_getAsn(obs_asn);
+   
+   observer_property_declaration_byte_array( PROPERTY_L2_FRAME_ASN, PROPERTY_NAME_L2_FRAME_ASN, 5, obs_asn);
 }
 
 port_INLINE void ieee154e_syncSlotOffset() {
@@ -2086,6 +2096,8 @@ void notif_sendDone(OpenQueueEntry_t* packetSent, owerror_t error) {
    scheduler_push_task(task_sixtopNotifSendDone,TASKPRIO_SIXTOP_NOTIF_TXDONE);
    // wake up the scheduler
    SCHEDULER_WAKEUP();
+   //GUIGUI 
+   //owsn_observer_frame_tx(packetSent);
 }
 
 void notif_receive(OpenQueueEntry_t* packetReceived) {
@@ -2105,6 +2117,13 @@ void notif_receive(OpenQueueEntry_t* packetReceived) {
    scheduler_push_task(task_sixtopNotifReceive,TASKPRIO_SIXTOP_NOTIF_RX);
    // wake up the scheduler
    SCHEDULER_WAKEUP();
+   //GUIGUI 
+   //TODO: count properties
+   //dataReceived->l1_rssi
+   //l1_lqi,
+   //dataReceived->l1_crc);
+   //owsn_observer_frame_rx(packetReceived,3);
+   
 }
 
 //======= stats
