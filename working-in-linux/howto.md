@@ -103,7 +103,7 @@ Install OpenWSN Kickstart tools
 Clone github exp-iotlab repo in order to obtain the gcc-arm compiler (in order to compile the M3 bin)
 TODO:
 ```
-git clone ...
+git clone https://github.com/adjih/exp-iotlab.git
 ```
 or as Quentin pointed out :
 ```
@@ -134,7 +134,7 @@ DO NOT PUSH HERE TO YOUR FORK IF THE PROJECT IS NOT PUBLIC.
 node/openwsn-fw-orange$ #\!/#git push#/!\##
 ```
 
-Add relevant files to the commit (merged files, new files, etc.) and commit to your fork :
+Add relevant files to the commit (merged files, new files, etc.) and commit to the forge :
 ```
 node/openwsn-fw-orange$ cd ..
 node$ git status
