@@ -183,6 +183,7 @@ owerror_t iphc_sendFromForwarding(
    }
    //then regular header
 
+
    if (iphc_prependIPv6Header(msg,
             tf,
             *flow_label, // value_flowlabel
@@ -204,6 +205,7 @@ owerror_t iphc_sendFromForwarding(
    }
    // report to observer
    owsn_observer_frame_data_update(msg);
+
    return sixtop_send(msg);
 }
 

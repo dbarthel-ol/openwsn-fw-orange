@@ -9,9 +9,6 @@
 #include "IEEE802154E.h"
 #include "idmanager.h"
 
-#include "IEEE802154E.h"
-#include "idmanager.h"
-
 //=========================== variables =======================================
 
 uinject_vars_t uinject_vars;

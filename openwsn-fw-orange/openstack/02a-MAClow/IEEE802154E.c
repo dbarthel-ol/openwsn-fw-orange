@@ -1881,8 +1881,9 @@ port_INLINE void joinPriorityStoreFromEB(uint8_t jp){
 bool isValidJoin(OpenQueueEntry_t* eb, ieee802154_header_iht *parsedHeader) {
    uint16_t              lenIE;
 
-   // toss the header in order to get to IEs
-   packetfunctions_tossHeader(eb, parsedHeader->headerLength);
+
+   // toss the header in order to get to IEs 
+   packetfunctions_tossHeader(eb, parsedHeader->headerLength); 
      
    // process IEs
    // at this stage, this can work only if EB is authenticated but not encrypted
