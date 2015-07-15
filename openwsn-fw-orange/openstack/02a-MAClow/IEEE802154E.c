@@ -1912,7 +1912,7 @@ bool isValidJoin(OpenQueueEntry_t* eb, ieee802154_header_iht *parsedHeader) {
 
 port_INLINE void asnStoreFromEB(uint8_t* asn) {
 
-	uint8_t * obs_asn=NULL;
+	//uint8_t * obs_asn=NULL;
 
    ieee154e_vars.asn.bytes0and1   =     asn[0]+
                                     256*asn[1];
@@ -1920,9 +1920,9 @@ port_INLINE void asnStoreFromEB(uint8_t* asn) {
                                     256*asn[3];
    ieee154e_vars.asn.byte4        =     asn[4];
    
-   ieee154e_getAsn(obs_asn);
+   //ieee154e_getAsn(obs_asn);
    
-   observer_property_declaration_byte_array( PROPERTY_L2_FRAME_ASN, PROPERTY_NAME_L2_FRAME_ASN, 5, obs_asn);
+   observer_property_declaration_byte_array( PROPERTY_L2_FRAME_ASN, PROPERTY_NAME_L2_FRAME_ASN, 5, asn);
 }
 
 port_INLINE void ieee154e_syncSlotOffset() {
