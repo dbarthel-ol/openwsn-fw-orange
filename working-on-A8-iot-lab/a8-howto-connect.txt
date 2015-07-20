@@ -1,0 +1,59 @@
+scp openwsn_* gaillard@grenoble.iot-lab.info:~/A8/
+
+ssh gaillard@grenoble.iot-lab.info
+
+d@grenoble:~$ ssh root@node-a8-8.grenoble.iot-lab.info
+
+cd A8/
+root@node-a8-9:~/A8# ls
+PyYAML-3.11	    m_serial.pyc		 openwsn_router_cstorm_slab  sensorlab_dagroot_test_obs.pcap
+PyYAML-3.11.tar.gz  miniterm.py			 openwsn_router_test_obs     sensorlab_frame_format.py
+error0.bin	    moteProbe.py		 pcap.py		     sensorlab_frame_format.pyc
+hdlc.log	    openwsn_dagroot		 pcap.pyc		     sensorlab_router.pcap
+hdlc.py		    openwsn_dagroot_OWSN	 sensorlab.pcap		     sensorlab_router_test_obs.pcap
+hdlc.pyc	    openwsn_dagroot_SLAB	 sensorlab.py		     sensorlab_serial.py
+m_common.py	    openwsn_dagroot_cstorm_slab  sensorlab.pyc		     serial_configuration.yml
+m_common.pyc	    openwsn_dagroot_test_obs	 sensorlab7.pcap	     serial_configuration.yml~
+m_observer.py	    openwsn_router		 sensorlab8.pcap
+m_serial.py	    openwsn_router_cstorm	 sensorlab9.pcap
+root@node-a8-9:~/A8# 
+
+
+root@node-a8-9:~/A8# cd PyYAML-3.11
+root@node-a8-9:~/A8/PyYAML-3.11# python setup.py install
+
+root@node-a8-9:~/A8# flash_a8_m3 openwsn_router
+
+root@node-a8-9:~/A8# debug_a8_m3 openwsn_router
+
+root@node-a8-9:~# gdb
+
+(gdb) target remote node-a8-9.grenoble.iot-lab.info:3333
+
+
+(gdb) monitor reset halt
+
+(gdb) monitor reset init
+
+gaillard@grenoble:~$ ssh root@node-a8-9.grenoble.iot-lab.info
+Last login: Mon Jul 20 14:51:09 2015 from 10.0.15.251
+root@node-a8-9:~# cd A8/
+root@node-a8-9:~/A8# python sensorlab_serial.py -h
+usage: sensorlab_serial.py [-h] [-c CONFIGURATION] [-p PORT] [-n NODE]
+                           [-f FILE]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -c CONFIGURATION, --configuration CONFIGURATION
+                        serial configuration
+  -p PORT, --port PORT  serial port (optionnal)
+  -n NODE, --node NODE  node ID
+  -f FILE, --file FILE  output filename
+root@node-a8-9:~/A8# python sensorlab_serial.py -n 9 -f trace_09.pcap
+
+(gdb) monitor reset run
+
+gaillard@gaillard-jonat2:~/openwsn/a8-iot-lab$ scp gaillard@grenoble.iot-lab.info:~/A8/trace* .
+
+
+
