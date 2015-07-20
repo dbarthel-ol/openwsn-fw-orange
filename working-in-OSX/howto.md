@@ -53,7 +53,7 @@ with kexts shipped by package managers such as homebrew, macports and fink.
 grab the arm-gcc compiler for ARM-cortex-M processors from [here](https://launchpad.net/gcc-arm-embedded/4.8/4.8-2014-q3-update/+download/gcc-arm-none-eabi-4_8-2014q3-20140805-mac.tar.bz2) or on their main [page](https://launchpad.net/gcc-arm-embedded) for newer versions.
 Extract it somewhere you know you won't move/delete in the near future and update your $PATH environment to include the bin directory of the toolchain.
 ```
-echo "export PATH=${PATH}:${install_dir}/gcc-arm-none-eabi-eabi-4_8-2014q3/bin" >> ~/{.bashrc,.zshrc}
+echo "export PATH=${PATH}:${install_dir}/gcc-arm-none-eabi-4_8-2014q3/bin" >> ~/{.bashrc,.zshrc}
 source ~/{.bashrc,.zshrc}
 ```
 
