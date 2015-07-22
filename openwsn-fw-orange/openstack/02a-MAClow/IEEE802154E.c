@@ -1773,7 +1773,7 @@ port_INLINE void activity_ri9(PORT_RADIOTIMER_WIDTH capturedTime) {
 
 A valid Rx frame satisfies the following constraints:
 - its IEEE802.15.4 header is well formatted
-- it's a DATA of BEACON frame (i.e. not ACK and not COMMAND)
+- it's a DATA or BEACON frame (i.e. not ACK and not COMMAND)
 - it's sent on the same PANid as mine
 - it's for me (unicast or broadcast)
 

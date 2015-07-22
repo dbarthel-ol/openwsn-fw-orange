@@ -863,6 +863,11 @@ port_INLINE void sixtop_sendEB() {
    eb->l2_keyIdMode       = IEEE802154_SECURITY_KEYIDMODE;
    eb->l2_keyIndex        = IEEE802154_SECURITY_K1_KEY_INDEX;
 
+   owsn_observer_frame_produce(eb, 0);
+   //observer_property_declaration_ASCII_array(PROPERTY_L2_FRAME_TYPE, PROPERTY_NAME_L2_FRAME_TYPE, strlen(PROPERTY_NAME_L2_FRAME_TYPE_ACK), PROPERTY_NAME_L2_FRAME_TYPE_ACK);
+   //observer_property_declaration_uint8(PROPERTY_L2_FRAME_DSN, PROPERTY_NAME_L2_FRAME_DSN, PREFIX_NONE, UNIT_NONE, ieee154e_vars.dataReceived->l2_dsn);
+
+
    // put in queue for MAC to handle
    sixtop_send_internal(eb,eb->l2_payloadIEpresent);
    
