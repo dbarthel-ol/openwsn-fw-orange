@@ -5,6 +5,7 @@
 #include "forwarding.h"
 #include "openqueue.h"
 #include "openserial.h"
+#include "observer.h"
 
 //=========================== variables =======================================
 
@@ -38,6 +39,8 @@ void icmpv6_sendDone(OpenQueueEntry_t* msg, owerror_t error) {
          // free the corresponding packet buffer
          openqueue_freePacketBuffer(msg);
          break;
+  //Jonathan 
+   //owsn_observer_frame_produce(msg, 0);
    }
 }
 

@@ -73,6 +73,8 @@ void icmpv6echo_trigger() {
       // packetfunctions_htons(icmpv6echo_vars.seq++ ,(uint8_t*)&((ICMPv6_ht*)(msg->payload))->sequence_number); 
       packetfunctions_calculateChecksum(msg,(uint8_t*)&(((ICMPv6_ht*)(msg->payload))->checksum));//do last
       //send
+      //Jonathan
+      //owsn_observer_frame_produce(msg, 0);
       if (icmpv6_send(msg)!=E_SUCCESS) {
          icmpv6echo_vars.busySending = FALSE;
          openqueue_freePacketBuffer(msg);

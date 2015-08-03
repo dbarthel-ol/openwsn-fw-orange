@@ -555,8 +555,8 @@ void sendDAO() {
    ((ICMPv6_ht*)(msg->payload))->code       = IANA_ICMPv6_RPL_DAO;
    packetfunctions_calculateChecksum(msg,(uint8_t*)&(((ICMPv6_ht*)(msg->payload))->checksum)); //call last
    
-   // owsn_observer_frame_produce(msg, 1);
-   // observer_property_declaration_ASCII_array(PROPERTY_L3_FRAME_TYPE, PROPERTY_NAME_L3_FRAME_TYPE, strlen(PROPERTY_NAME_L3_FRAME_TYPE_DAO), PROPERTY_NAME_L3_FRAME_TYPE_DAO);
+   owsn_observer_frame_produce(msg, 1);
+   observer_property_declaration_ASCII_array(PROPERTY_L3_FRAME_TYPE, PROPERTY_NAME_L3_FRAME_TYPE, strlen(PROPERTY_NAME_L3_FRAME_TYPE_DAO), PROPERTY_NAME_L3_FRAME_TYPE_DAO);
    //===== send
    if (icmpv6_send(msg)==E_SUCCESS) {
       icmpv6rpl_vars.busySending = TRUE;

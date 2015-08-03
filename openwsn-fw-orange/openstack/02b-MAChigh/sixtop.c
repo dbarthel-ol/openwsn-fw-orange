@@ -253,6 +253,8 @@ void sixtop_addCells(open_addr_t* neighbor, uint16_t numCells){
    pkt->l2_payloadIEpresent = TRUE;
    // #TODO : report Observer packet produce
    
+   //Jonathan
+   //owsn_observer_frame_produce(pkt, 0);
    // send packet
    sixtop_send(pkt);
    
@@ -345,7 +347,8 @@ void sixtop_removeCell(open_addr_t* neighbor){
    // indicate IEs present
    pkt->l2_payloadIEpresent = TRUE;
    // report to observer
-   owsn_observer_frame_produce(pkt, 0); 
+   //Jonathan
+   //owsn_observer_frame_produce(pkt, 0); 
 
    // send packet
    sixtop_send(pkt);
@@ -438,6 +441,8 @@ void sixtop_removeCellByInfo(open_addr_t*  neighbor,cellInfo_ht* cellInfo){
    // indicate IEs present
    pkt->l2_payloadIEpresent = TRUE;
    
+   //Jonathan
+   //owsn_observer_frame_produce(pkt, 0);
    // send packet
    sixtop_send(pkt);
    
@@ -736,8 +741,11 @@ owerror_t sixtop_send_internal(
                             msg->l2_dsn,
                             &(msg->l2_nextORpreviousHop)
                             );
+   //Jonathan
+   //owsn_observer_frame_produce(msg, 0);
    // change owner to IEEE802154E fetches it from queue
    msg->owner  = COMPONENT_SIXTOP_TO_IEEE802154E;
+
    return E_SUCCESS;
 }
 
@@ -933,6 +941,8 @@ port_INLINE void sixtop_sendKA() {
    kaPkt->l2_securityLevel   = IEEE802154_SECURITY_LEVEL;
    kaPkt->l2_keyIdMode       = IEEE802154_SECURITY_KEYIDMODE;
    kaPkt->l2_keyIndex        = IEEE802154_SECURITY_K2_KEY_INDEX;
+   //Jonathan
+   //owsn_observer_frame_produce(kaPkt, 0);
 
    // put in queue for MAC to handle
    sixtop_send_internal(kaPkt,FALSE);
@@ -944,6 +954,7 @@ port_INLINE void sixtop_sendKA() {
    debugpins_ka_set();
    debugpins_ka_clr();
 #endif
+   
 }
 
 //======= six2six task
