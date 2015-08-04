@@ -18,8 +18,7 @@
 //=========================== public ==========================================
 
 void openudp_init() {
-   observer_entity_add(COMPONENT_OPENUDP, COMPONENT_NAME_OPENUDP, 0);
-}
+   }
 
 owerror_t openudp_send(OpenQueueEntry_t* msg) {
    msg->owner       = COMPONENT_OPENUDP;
@@ -31,9 +30,7 @@ owerror_t openudp_send(OpenQueueEntry_t* msg) {
    packetfunctions_htons(msg->l4_destination_port,&(msg->payload[2]));
    packetfunctions_htons(msg->length,&(msg->payload[4]));
    packetfunctions_calculateChecksum(msg,(uint8_t*)&(((udp_ht*)msg->payload)->checksum));
-   //Jonathan
-   owsn_observer_frame_produce(msg, 0);
-   
+    
    return forwarding_send(msg);
 }
 
