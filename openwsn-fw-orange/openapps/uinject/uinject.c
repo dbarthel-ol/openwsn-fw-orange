@@ -100,7 +100,7 @@ void uinject_task_cb() {
    pkt->l4_sourcePortORicmpv6Type     = WKP_UDP_INJECT;
    pkt->l3_destinationAdd.type        = ADDR_128B;
    memcpy(&pkt->l3_destinationAdd.addr_128b[0],uinject_dst_addr,16);
-   //Jonathan
+   //Report to the observer
    owsn_observer_frame_produce(pkt,0);
    
    packetfunctions_reserveHeaderSize(pkt,sizeof(uint16_t));

@@ -344,7 +344,7 @@ void csensors_task_cb() {
    pkt->l3_destinationAdd.type    = ADDR_128B;
    memcpy(&pkt->l3_destinationAdd.addr_128b[0],&ipAddr_ringmaster,16);
    
-   //Jonathan
+   //report to the observer
    owsn_observer_frame_produce(pkt,0);
 
    // send
