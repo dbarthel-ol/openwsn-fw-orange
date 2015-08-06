@@ -36,6 +36,7 @@ void uinject_init() {
       TIMER_PERIODIC,TIME_MS,
       uinject_timer_cb
    );
+   observer_entity_add(COMPONENT_UINJECT, COMPONENT_NAME_OPENUDP,0);
 }
 
 void uinject_sendDone(OpenQueueEntry_t* msg, owerror_t error) {
@@ -52,6 +53,7 @@ void uinject_receive(OpenQueueEntry_t* pkt) {
       (errorparameter_t)0,
       (errorparameter_t)0
    );
+observer_entity_add(COMPONENT_UINJECT, COMPONENT_NAME_UINJECT,0);  
 }
 
 //=========================== private =========================================
@@ -98,6 +100,8 @@ void uinject_task_cb() {
    pkt->l4_sourcePortORicmpv6Type     = WKP_UDP_INJECT;
    pkt->l3_destinationAdd.type        = ADDR_128B;
    memcpy(&pkt->l3_destinationAdd.addr_128b[0],uinject_dst_addr,16);
+   //Jonathan
+   owsn_observer_frame_produce(pkt,0);
    
    packetfunctions_reserveHeaderSize(pkt,sizeof(uint16_t));
    *((uint16_t*)&pkt->payload[0]) = uinject_vars.counter++;

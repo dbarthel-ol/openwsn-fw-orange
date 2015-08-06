@@ -18,6 +18,7 @@
 //=========================== public ==========================================
 
 void openudp_init() {
+   observer_entity_add(COMPONENT_OPENUDP, COMPONENT_NAME_OPENUDP,0);
    }
 
 owerror_t openudp_send(OpenQueueEntry_t* msg) {

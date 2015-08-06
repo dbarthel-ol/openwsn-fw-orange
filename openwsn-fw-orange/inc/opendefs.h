@@ -247,6 +247,8 @@ enum {
 #define COMPONENT_NAME_TOHLONE                            "TCP OHLONE"
 #define COMPONENT_NAME_UECHO                              "UDP ECHO"
 #define COMPONENT_NAME_RRT                                "RRT"
+//Jonathan
+#define COMPONENT_NAME_UINJECT                            "UINJECT"
 
 #define PROPERTY_NAME_L4_PROTOCOL                         "transport protocol"
 #define PROPERTY_NAME_L4_PROTOCOL_COMPRESSED              "compressed"
