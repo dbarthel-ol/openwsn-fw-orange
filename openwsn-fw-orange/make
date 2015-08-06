@@ -4,8 +4,8 @@ BIN_FOLDER=${ROOT_FOLDER}/bin
 BUILD_FOLDER=${ROOT_FOLDER}/build/
 
 rm -rf ${BUILD_FOLDER}
-scons board=iot-lab_M3 toolchain=armgcc oos_openwsn dagroot=0 sensorlab=1
+scons board=iot-lab_M3 toolchain=armgcc oos_openwsn dagroot=0 sensorlab=1 debug=1 
 mv ${ROOT_FOLDER}/build/iot-lab_M3_armgcc/projects/common/03oos_openwsn_prog ${BIN_FOLDER}/openwsn_router
 rm -rf ${BUILD_FOLDER}
-scons board=iot-lab_M3 toolchain=armgcc oos_openwsn dagroot=1 sensorlab=1
+scons board=iot-lab_M3 toolchain=armgcc oos_openwsn dagroot=1 sensorlab=1 debug=1  
 cp ${ROOT_FOLDER}/build/iot-lab_M3_armgcc/projects/common/03oos_openwsn_prog ${BIN_FOLDER}/openwsn_dagroot

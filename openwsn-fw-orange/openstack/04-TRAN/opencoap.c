@@ -386,6 +386,8 @@ void opencoap_writeLinks(OpenQueueEntry_t* msg, uint8_t componentID) {
       // iterate to next resource
       temp_resource = temp_resource->next;
    }
+   //Jonathan
+   owsn_observer_frame_produce(msg,0);
 }
 
 /**
