@@ -1343,11 +1343,10 @@ port_INLINE void activity_ti9(PORT_RADIOTIMER_WIDTH capturedTime) {
       // in any case, execute the clean-up code below (processing of ACK done)
    } while (0);
    
-   //report to the observer
-   owsn_observer_frame_consume(ieee154e_vars.dataReceived);
+   //report to the observer 
+   owsn_observer_frame_consume(ieee154e_vars.ackReceived); 
    // free the received ack so corresponding RAM memory can be recycled
    openqueue_freePacketBuffer(ieee154e_vars.ackReceived);
-   
    // clear local variable
    ieee154e_vars.ackReceived = NULL;
    
