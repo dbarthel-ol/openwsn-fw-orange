@@ -12,7 +12,6 @@
 #include "opentcp.h"
 #include "debugpins.h"
 #include "scheduler.h"
-#include "observer.h"
 
 //=========================== variables =======================================
 
@@ -226,10 +225,6 @@ void forwarding_receive(
    memcpy(&(msg->l3_destinationAdd),&ipv6_outer_header->dest,sizeof(open_addr_t));
    memcpy(&(msg->l3_sourceAdd),     &ipv6_outer_header->src, sizeof(open_addr_t));
 
-   // report to observer
-   observer_frame_data_update(COMPONENT_ICMPv6RPL, msg->id, msg->length, msg->payload);
-
-
    if (
          (
             idmanager_isMyAddress(&ipv6_outer_header->dest)
@@ -268,8 +263,7 @@ void forwarding_receive(
                (errorparameter_t)msg->l4_protocol,
                (errorparameter_t)1
             );
-            // report to observer
-            observer_frame_consume(COMPONENT_ICMPv6RPL, msg->id, msg->length, msg->payload);
+            
             // free packet
             openqueue_freePacketBuffer(msg);
       }
@@ -404,9 +398,7 @@ owerror_t forwarding_send_internal_RoutingTable(
       );
       return E_FAIL;
    }
-   // report to observer
-   observer_frame_data_update(COMPONENT_ICMPv6RPL, msg->id, msg->length, msg->payload);
-
+   
    // send to next lower layer
    return iphc_sendFromForwarding(
       msg,
@@ -499,9 +491,6 @@ owerror_t forwarding_send_internal_SourceRouting(
       // toss iphc inner header
       packetfunctions_tossHeader(msg,ipv6_inner_header->header_length);
       
-      // report to observer
-      observer_frame_data_update(COMPONENT_ICMPv6RPL, msg->id, msg->length, msg->payload);
-
       // indicate reception to upper layer
       switch(msg->l4_protocol) {
          case IANA_TCP:
@@ -521,8 +510,6 @@ owerror_t forwarding_send_internal_SourceRouting(
                (errorparameter_t)1
             );
             //not sure that this is correct as iphc will free it?
-            // report to observer
-            observer_frame_consume(COMPONENT_ICMPv6RPL, msg->id, msg->length, msg->payload);
             openqueue_freePacketBuffer(msg);
             return E_FAIL;
       }
@@ -544,8 +531,6 @@ owerror_t forwarding_send_internal_SourceRouting(
             (errorparameter_t)0,
             (errorparameter_t)0
          );
-         // report to observer
-         observer_frame_consume(COMPONENT_ICMPv6RPL, msg->id, msg->length, msg->payload);
          openqueue_freePacketBuffer(msg);
          return E_FAIL;
       
@@ -647,13 +632,12 @@ owerror_t forwarding_send_internal_SourceRouting(
                   (errorparameter_t)1,
                   (errorparameter_t)0
                );
-               observer_frame_consume(COMPONENT_ICMPv6RPL, msg->id, msg->length, msg->payload);
                openqueue_freePacketBuffer(msg);
                return E_FAIL;
          }
       }
    }
-   observer_frame_data_update(COMPONENT_ICMPv6RPL, msg->id, msg->length, msg->payload);
+   
    // send to next lower layer
    return iphc_sendFromForwarding(
       msg,
