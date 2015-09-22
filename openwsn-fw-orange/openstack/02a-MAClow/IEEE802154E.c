@@ -116,14 +116,14 @@ void ieee154e_init() {
 
    observer_entity_add(COMPONENT_RADIO, COMPONENT_NAME_RADIO, 3);
    observer_property_declaration_float(PROPERTY_ENTITY_LEVEL, PROPERTY_NAME_ENTITY_LEVEL, PREFIX_NONE, UNIT_NONE, ENTITY_RADIO_LEVEL);
-   observer_property_declaration_byte_array(PROPERTY_L1_ADDRESS, PROPERTY_NAME_L1_ADDRESS, 8, (uint8_t*)mac_address_64b);
+   observer_property_declaration_byte_array(PROPERTY_L1_ADDRESS, PROPERTY_NAME_L1_ADDRESS, 8, (uint8_t*)mac_address_64b->addr_64b);
    observer_property_declaration_ASCII_array(PROPERTY_FRAME_DISSECTOR, PROPERTY_NAME_FRAME_DISSECTOR, strlen(DISSECTOR_NAME_IEEE80215), DISSECTOR_NAME_IEEE80215);
 
 
    observer_entity_add(COMPONENT_IEEE802154E, COMPONENT_NAME_IEEE802154E, 3);
    observer_property_declaration_float(PROPERTY_ENTITY_LEVEL, PROPERTY_NAME_ENTITY_LEVEL, PREFIX_NONE, UNIT_NONE, ENTITY_LINK_LEVEL);
-   observer_property_declaration_byte_array(PROPERTY_L2_NODE_ADDRESS_64B, PROPERTY_NAME_L2_NODE_ADDRESS_64B, 8, (uint8_t*)mac_address_64b);
-   observer_property_declaration_byte_array(PROPERTY_L2_NODE_ADDRESS_16B, PROPERTY_NAME_L2_NODE_ADDRESS_16B, 2, (uint8_t*)mac_address_16b);
+   observer_property_declaration_byte_array(PROPERTY_L2_NODE_ADDRESS_64B, PROPERTY_NAME_L2_NODE_ADDRESS_64B, 8, (uint8_t*)mac_address_64b->addr_64b);
+   observer_property_declaration_byte_array(PROPERTY_L2_NODE_ADDRESS_16B, PROPERTY_NAME_L2_NODE_ADDRESS_16B, 2, (uint8_t*)mac_address_16b->addr_16b);
 
    
    // initialize variables

@@ -686,12 +686,12 @@ void owsn_observer_frame_consume(OpenQueueEntry_t *packet){
 
 void owsn_observer_link_l1_add(neighborRow_t * neighbor){
    observer_link_add(COMPONENT_RADIO, neighbor->id, 0, 1, 1);
-   observer_property_reference_byte_array(PROPERTY_L1_ADDRESS, 8, (uint8_t*)&(neighbor->addr_64b));
+   observer_property_reference_byte_array(PROPERTY_L1_ADDRESS, 8, (uint8_t*)&(neighbor->addr_64b.addr_64b));
    observer_property_declaration_int8(PROPERTY_L1_RSSI, PROPERTY_NAME_L1_RSSI, PREFIX_NONE, UNIT_NONE, neighbor->rssi);
 }
 void owsn_observer_link_l2_add(neighborRow_t * neighbor){
    observer_link_add(COMPONENT_IEEE802154E, neighbor->id, 0, 1, 5);
-   observer_property_reference_byte_array(PROPERTY_L2_NODE_ADDRESS_64B, 8, (uint8_t*)&(neighbor->addr_64b));
+   observer_property_reference_byte_array(PROPERTY_L2_NODE_ADDRESS_64B, 8, (uint8_t*)&(neighbor->addr_64b.addr_64b));
    observer_property_declaration_boolean(PROPERTY_L2_LINK_IS_STABLE, PROPERTY_NAME_L2_LINK_IS_STABLE, neighbor->stableNeighbor);
    observer_property_declaration_uint8(PROPERTY_L2_LINK_NUM_STABILITY, PROPERTY_NAME_L2_LINK_NUM_STABILITY, PREFIX_NONE, UNIT_NONE, neighbor->switchStabilityCounter);
    observer_property_declaration_uint8(PROPERTY_L2_LINK_NUM_RX, PROPERTY_NAME_L2_LINK_NUM_RX, PREFIX_NONE, UNIT_NONE, neighbor->numRx);
@@ -702,7 +702,7 @@ void owsn_observer_link_l3_add(neighborRow_t * neighbor){
    uint8_t address[16];
 
    memcpy(address, idmanager_getMyID(ADDR_PREFIX)->prefix, 8);
-   memcpy(address+8, &(neighbor->addr_64b), 8);
+   memcpy(address+8, &(neighbor->addr_64b.addr_64b), 8);
    observer_link_add(COMPONENT_ICMPv6RPL, neighbor->id, 0, 1, 3);
    observer_property_reference_byte_array(PROPERTY_L3_NODE_ADDRESS, 16, address);
    observer_property_declaration_uint8(PROPERTY_L3_LINK_PARENT_PREFERENCE, PROPERTY_NAME_L3_LINK_PARENT_PREFERENCE, PREFIX_NONE, UNIT_NONE, neighbor->parentPreference);
