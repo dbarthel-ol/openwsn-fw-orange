@@ -134,7 +134,7 @@ command_line_options = {
     'debug':            ['0','1'],
     'noadaptivesync':   ['0','1'],
     'cryptoengine':     ['', 'dummy_crypto_engine', 'firmware_crypto_engine', 'board_crypto_engine'],
-    'sensorlab':   	['0','1'],
+    'sensorlab':   	    ['0','1'],
     'l2_security':      ['0','1'],
     'goldenImage':      ['none','root','sniffer'],
 }

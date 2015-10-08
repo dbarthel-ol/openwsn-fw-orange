@@ -10,6 +10,7 @@
 #include "idmanager.h"
 #include "opentimers.h"
 #include "IEEE802154E.h"
+#include "observer.h"
 
 //=========================== variables =======================================
 
@@ -25,10 +26,6 @@ void sendDIO(void);
 void icmpv6rpl_timer_DAO_cb(opentimer_id_t id);
 void icmpv6rpl_timer_DAO_task(void);
 void sendDAO(void);
-// DIS-related
-void icmpv6rpl_timer_DIS_cb(opentimer_id_t id);
-void icmpv6rpl_timer_DIS_task(void);
-void sendDIS(void);
 
 //=========================== public ==========================================
 
@@ -37,6 +34,8 @@ void sendDIS(void);
 */
 void icmpv6rpl_init() {
    uint8_t         dodagid[16];
+   uint32_t        dioPeriod;
+   uint32_t        daoPeriod;
    
    // retrieve my prefix and EUI64
    memcpy(&dodagid[0],idmanager_getMyID(ADDR_PREFIX)->prefix,8); // prefix
@@ -74,9 +73,10 @@ void icmpv6rpl_init() {
    icmpv6rpl_vars.dioDestination.type = ADDR_128B;
    memcpy(&icmpv6rpl_vars.dioDestination.addr_128b[0],all_routers_multicast,sizeof(all_routers_multicast));
    
-   icmpv6rpl_vars.dioPeriod                 = TIMER_DIO_TIMEOUT+(openrandom_get16b()&0xff);
+   icmpv6rpl_vars.dioPeriod                 = TIMER_DIO_TIMEOUT;
+   dioPeriod                                = icmpv6rpl_vars.dioPeriod - 0x80 + (openrandom_get16b()&0xff);
    icmpv6rpl_vars.timerIdDIO                = opentimers_start(
-                                                icmpv6rpl_vars.dioPeriod,
+                                                dioPeriod,
                                                 TIMER_PERIODIC,
                                                 TIME_MS,
                                                 icmpv6rpl_timer_DIO_cb
@@ -112,7 +112,7 @@ void icmpv6rpl_init() {
                                               PC3_A_DAO_Transit_Info | \
                                               PC3_B_DAO_Transit_Info | \
                                               PC4_A_DAO_Transit_Info | \
-                                              PC4_B_DAO_Transit_Info;  
+                                              PC4_B_DAO_Transit_Info;
    icmpv6rpl_vars.dao_transit.PathSequence  = 0x00; // to be incremented at each TX
    icmpv6rpl_vars.dao_transit.PathLifetime  = 0xAA;
    //target information
@@ -121,23 +121,19 @@ void icmpv6rpl_init() {
    icmpv6rpl_vars.dao_target.flags  = 0;
    icmpv6rpl_vars.dao_target.prefixLength = 0;
    
-   icmpv6rpl_vars.daoPeriod                 = TIMER_DAO_TIMEOUT+(openrandom_get16b()&0xff);
+   icmpv6rpl_vars.daoPeriod                 = TIMER_DAO_TIMEOUT;
+   daoPeriod                                = icmpv6rpl_vars.daoPeriod - 0x80 + (openrandom_get16b()&0xff);
    icmpv6rpl_vars.timerIdDAO                = opentimers_start(
-                                                icmpv6rpl_vars.daoPeriod,
+                                                daoPeriod,
                                                 TIMER_PERIODIC,
                                                 TIME_MS,
                                                 icmpv6rpl_timer_DAO_cb
                                              );
-   
-    //=== DIS
-   icmpv6rpl_vars.dis.flags                 = 0x00;
-   icmpv6rpl_vars.dis.reserved              = 0x00;
-   icmpv6rpl_vars.dis.dis_options           = Dis_DisOptions_A  | \
-                                              Dis_DisOptions_B  | \
-                                              Dis_DisOptions_C;
-   
-   icmpv6rpl_vars.disDestination.type = ADDR_128B;
-   memcpy(&icmpv6rpl_vars.disDestination.addr_128b[0],all_routers_multicast,sizeof(all_routers_multicast));
+   observer_entity_add(COMPONENT_ICMPv6RPL, COMPONENT_NAME_ICMPv6RPL,3);
+   observer_property_declaration_float(PROPERTY_ENTITY_LEVEL, PROPERTY_NAME_ENTITY_LEVEL, PREFIX_NONE, UNIT_NONE, ENTITY_NETWORK_LEVEL);
+   observer_property_declaration_byte_array(PROPERTY_L3_NODE_ADDRESS, PROPERTY_NAME_L3_NODE_ADDRESS, 16, dodagid);
+   observer_property_declaration_uint16(PROPERTY_L3_NODE_DAGRANK, PROPERTY_NAME_L3_NODE_DAGRANK, PREFIX_NONE, UNIT_NONE, DEFAULTDAGRANK);
+
 
 }
 
@@ -205,11 +201,14 @@ void icmpv6rpl_receive(OpenQueueEntry_t* msg) {
    
    // toss ICMPv6 header
    packetfunctions_tossHeader(msg,sizeof(ICMPv6_ht));
-   
+   owsn_observer_frame_data_update(msg);
    // handle message
    switch (icmpv6code) {
       
       case IANA_ICMPv6_RPL_DIO:
+         owsn_observer_frame_property_add(msg, 1);
+         observer_property_declaration_ASCII_array(PROPERTY_L3_FRAME_TYPE, PROPERTY_NAME_L3_FRAME_TYPE, strlen(PROPERTY_NAME_L3_FRAME_TYPE_DIO), PROPERTY_NAME_L3_FRAME_TYPE_DIO);
+
          if (idmanager_getIsDAGroot()==TRUE) {
             // stop here if I'm in the DAG root
             break; // break, don't return
@@ -233,6 +232,8 @@ void icmpv6rpl_receive(OpenQueueEntry_t* msg) {
          break;
       
       case IANA_ICMPv6_RPL_DAO:
+        observer_frame_property_add(COMPONENT_ICMPv6RPL, msg->id, 1);
+         observer_property_declaration_ASCII_array(PROPERTY_L3_FRAME_TYPE, PROPERTY_NAME_L3_FRAME_TYPE, strlen(PROPERTY_NAME_L3_FRAME_TYPE_DAO), PROPERTY_NAME_L3_FRAME_TYPE_DAO);
          // this should never happen
          openserial_printCritical(COMPONENT_ICMPv6RPL,ERR_UNEXPECTED_DAO,
                                (errorparameter_t)0,
@@ -249,6 +250,8 @@ void icmpv6rpl_receive(OpenQueueEntry_t* msg) {
    }
    
    // free message
+   //owsn_observer_frame_consume(msg);
+   observer_frame_consume(COMPONENT_ICMPv6RPL, msg->id, msg->length, msg->payload);
    openqueue_freePacketBuffer(msg);
 }
 
@@ -272,16 +275,17 @@ void icmpv6rpl_timer_DIO_cb(opentimer_id_t id) {
 \note This function is executed in task context, called by the scheduler.
 */
 void icmpv6rpl_timer_DIO_task() {
-      
-    // send DIO
-    sendDIO();
-    
-    // arm the DIO timer with this new value
-    opentimers_setPeriod(
-       icmpv6rpl_vars.timerIdDIO,
-       TIME_MS,
-       icmpv6rpl_vars.dioPeriod
-    );
+   uint32_t        dioPeriod;
+   // send DIO
+   sendDIO();
+   
+   // arm the DIO timer with this new value
+   dioPeriod = icmpv6rpl_vars.dioPeriod - 0x80 + (openrandom_get16b()&0xff);
+   opentimers_setPeriod(
+      icmpv6rpl_vars.timerIdDIO,
+      TIME_MS,
+      dioPeriod
+   );
 }
 
 /**
@@ -360,6 +364,8 @@ void sendDIO() {
    ((ICMPv6_ht*)(msg->payload))->code       = IANA_ICMPv6_RPL_DIO;
    packetfunctions_calculateChecksum(msg,(uint8_t*)&(((ICMPv6_ht*)(msg->payload))->checksum));//call last
    
+   owsn_observer_frame_produce(msg, 1);
+   observer_property_declaration_ASCII_array(PROPERTY_L3_FRAME_TYPE, PROPERTY_NAME_L3_FRAME_TYPE, strlen(PROPERTY_NAME_L3_FRAME_TYPE_DIO), PROPERTY_NAME_L3_FRAME_TYPE_DIO);
    //send
    if (icmpv6_send(msg)!=E_SUCCESS) {
       icmpv6rpl_vars.busySending = FALSE;
@@ -387,15 +393,17 @@ void icmpv6rpl_timer_DAO_cb(opentimer_id_t id) {
 \note This function is executed in task context, called by the scheduler.
 */
 void icmpv6rpl_timer_DAO_task() {
-    
+   uint32_t        daoPeriod;
+   
    // send DAO
    sendDAO();
-  
+   
    // arm the DAO timer with this new value
+   daoPeriod = icmpv6rpl_vars.daoPeriod - 0x80 + (openrandom_get16b()&0xff);
    opentimers_setPeriod(
       icmpv6rpl_vars.timerIdDAO,
       TIME_MS,
-      icmpv6rpl_vars.daoPeriod
+      daoPeriod
    );
 }
 
@@ -554,6 +562,8 @@ void sendDAO() {
    ((ICMPv6_ht*)(msg->payload))->code       = IANA_ICMPv6_RPL_DAO;
    packetfunctions_calculateChecksum(msg,(uint8_t*)&(((ICMPv6_ht*)(msg->payload))->checksum)); //call last
    
+   owsn_observer_frame_produce(msg, 1);
+   observer_property_declaration_ASCII_array(PROPERTY_L3_FRAME_TYPE, PROPERTY_NAME_L3_FRAME_TYPE, strlen(PROPERTY_NAME_L3_FRAME_TYPE_DAO), PROPERTY_NAME_L3_FRAME_TYPE_DAO);
    //===== send
    if (icmpv6_send(msg)==E_SUCCESS) {
       icmpv6rpl_vars.busySending = TRUE;
@@ -562,130 +572,26 @@ void sendDAO() {
    }
 }
 
-// DIS related
-
-void icmpv6rpl_timer_DIS_cb(opentimer_id_t id) {
-   scheduler_push_task(icmpv6rpl_timer_DIS_task,TASKPRIO_RPL);
-}
-
-
-void icmpv6rpl_timer_DIS_task() {
-
-    uint8_t              numTransitParents;
-      
-     if (numTransitParents==0) {
-  
-    // send DIS
-    sendDIS();
-    
-    return;
-}
-
-}
-
-void sendDIS(){
-  OpenQueueEntry_t*    msg;
-  uint8_t              nbrIdx;             
-  open_addr_t         address;
-   
-   // stop if I'm not sync'ed
-   if (ieee154e_isSynch()==FALSE) {
-      
-      // remove packets genereted by this module (DIO and DAO) from openqueue
-      openqueue_removeAllCreatedBy(COMPONENT_ICMPv6RPL);
-      
-      // I'm not busy sending a DIO/DAO/DIS
-      icmpv6rpl_vars.busySending  = FALSE;
-      
-      // stop here
-      return;
-   }
-  
-  // dont' send a DIS if you're the DAG root
-   if (idmanager_getIsDAGroot()==TRUE) {
-      return;
-   }
-   
-   
-   // dont' send a DIS if you're still busy sending the previous one
-   if (icmpv6rpl_vars.busySending==TRUE) {
-      return;
-   }
-   
-   // if you get here, all good to send a DIS
-   
-   // I'm now busy sending
-   icmpv6rpl_vars.busySending = TRUE;
-   
-   // reserve a free packet buffer for DIS
-   msg = openqueue_getFreePacketBuffer(COMPONENT_ICMPv6RPL);
-   if (msg==NULL) {
-      openserial_printError(COMPONENT_ICMPv6RPL,ERR_NO_FREE_PACKET_BUFFER,
-                            (errorparameter_t)0,
-                            (errorparameter_t)0);
-      icmpv6rpl_vars.busySending = FALSE;
-      
-      return;
-   }
-   
-   // take ownership
-   msg->creator                             = COMPONENT_ICMPv6RPL;
-   msg->owner                               = COMPONENT_ICMPv6RPL;
-   
-   // set transport information
-   msg->l4_protocol                         = IANA_ICMPv6;
-   msg->l4_sourcePortORicmpv6Type           = IANA_ICMPv6_RPL;
-   
-   // set DIS destination
-   
-   neighbors_getNeighbor(&address,ADDR_64B,nbrIdx); 
-   memcpy(&(msg->l3_destinationAdd),&icmpv6rpl_vars.disDestination,sizeof(open_addr_t));
-   
-   //===== DIS payload
-   
-  
-   packetfunctions_reserveHeaderSize(msg,sizeof(icmpv6rpl_dis_ht));
-   memcpy(
-      ((icmpv6rpl_dis_ht*)(msg->payload)),
-      &(icmpv6rpl_vars.dis),
-      sizeof(icmpv6rpl_dis_ht)
-   );
-   
-   
-   
-   //===== ICMPv6 header
-   packetfunctions_reserveHeaderSize(msg,sizeof(ICMPv6_ht));
-   ((ICMPv6_ht*)(msg->payload))->type       = msg->l4_sourcePortORicmpv6Type;
-   ((ICMPv6_ht*)(msg->payload))->code       = IANA_ICMPv6_RPL_DIS;
-   packetfunctions_calculateChecksum(msg,(uint8_t*)&(((ICMPv6_ht*)(msg->payload))->checksum));//call last
-   
-   
-   //send
-   if (icmpv6_send(msg)!=E_SUCCESS) {
-      icmpv6rpl_vars.busySending = FALSE;
-      openqueue_freePacketBuffer(msg);
-   } else {
-      icmpv6rpl_vars.busySending = FALSE; 
-   }
-   
-   
-
-}
-
 void icmpv6rpl_setDIOPeriod(uint16_t dioPeriod){
-    icmpv6rpl_vars.dioPeriod = dioPeriod;
-    opentimers_setPeriod(
-        icmpv6rpl_vars.timerIdDIO,
-        TIME_MS,
-        icmpv6rpl_vars.dioPeriod
-     );
+   uint32_t        dioPeriodRandom;
+   
+   icmpv6rpl_vars.dioPeriod = dioPeriod;
+   dioPeriodRandom = icmpv6rpl_vars.dioPeriod - 0x80 + (openrandom_get16b()&0xff);
+   opentimers_setPeriod(
+       icmpv6rpl_vars.timerIdDIO,
+       TIME_MS,
+       dioPeriodRandom
+   );
 }
 
 void icmpv6rpl_setDAOPeriod(uint16_t daoPeriod){
-    icmpv6rpl_vars.daoPeriod = daoPeriod;
-    opentimers_setPeriod(
-        icmpv6rpl_vars.timerIdDAO,
-        TIME_MS,
-        icmpv6rpl_vars.daoPeriod
-     );
+   uint32_t        daoPeriodRandom;
+   
+   icmpv6rpl_vars.daoPeriod = daoPeriod;
+   daoPeriodRandom = icmpv6rpl_vars.daoPeriod - 0x80 + (openrandom_get16b()&0xff);
+   opentimers_setPeriod(
+       icmpv6rpl_vars.timerIdDAO,
+       TIME_MS,
+       daoPeriodRandom
+   );
 }

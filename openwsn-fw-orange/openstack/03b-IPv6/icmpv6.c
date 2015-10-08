@@ -5,6 +5,7 @@
 #include "forwarding.h"
 #include "openqueue.h"
 #include "openserial.h"
+#include "observer.h"
 
 //=========================== variables =======================================
 

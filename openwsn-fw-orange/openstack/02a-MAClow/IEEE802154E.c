@@ -116,14 +116,14 @@ void ieee154e_init() {
 
    observer_entity_add(COMPONENT_RADIO, COMPONENT_NAME_RADIO, 3);
    observer_property_declaration_float(PROPERTY_ENTITY_LEVEL, PROPERTY_NAME_ENTITY_LEVEL, PREFIX_NONE, UNIT_NONE, ENTITY_RADIO_LEVEL);
-   observer_property_declaration_byte_array(PROPERTY_L1_ADDRESS, PROPERTY_NAME_L1_ADDRESS, 8, (uint8_t*)mac_address_64b);
+   observer_property_declaration_byte_array(PROPERTY_L1_ADDRESS, PROPERTY_NAME_L1_ADDRESS, 8, (uint8_t*)mac_address_64b->addr_64b);
    observer_property_declaration_ASCII_array(PROPERTY_FRAME_DISSECTOR, PROPERTY_NAME_FRAME_DISSECTOR, strlen(DISSECTOR_NAME_IEEE80215), DISSECTOR_NAME_IEEE80215);
 
 
    observer_entity_add(COMPONENT_IEEE802154E, COMPONENT_NAME_IEEE802154E, 3);
    observer_property_declaration_float(PROPERTY_ENTITY_LEVEL, PROPERTY_NAME_ENTITY_LEVEL, PREFIX_NONE, UNIT_NONE, ENTITY_LINK_LEVEL);
-   observer_property_declaration_byte_array(PROPERTY_L2_NODE_ADDRESS_64B, PROPERTY_NAME_L2_NODE_ADDRESS_64B, 8, (uint8_t*)mac_address_64b);
-   observer_property_declaration_byte_array(PROPERTY_L2_NODE_ADDRESS_16B, PROPERTY_NAME_L2_NODE_ADDRESS_16B, 2, (uint8_t*)mac_address_16b);
+   observer_property_declaration_byte_array(PROPERTY_L2_NODE_ADDRESS_64B, PROPERTY_NAME_L2_NODE_ADDRESS_64B, 8, (uint8_t*)mac_address_64b->addr_64b);
+   observer_property_declaration_byte_array(PROPERTY_L2_NODE_ADDRESS_16B, PROPERTY_NAME_L2_NODE_ADDRESS_16B, 2, (uint8_t*)mac_address_16b->addr_16b);
 
    
    // initialize variables
@@ -462,6 +462,27 @@ port_INLINE void activity_synchronize_newSlot() {
       ieee154e_vars.radioOnInit=radio_getTimerValue();
       ieee154e_vars.radioOnThisSlot=TRUE;
       radio_rxNow();
+   }
+   
+   // if I'm already in S_SYNCLISTEN, while not synchronized,
+   // but the synchronizing channel has been changed,
+   // change the synchronizing channel
+   if ((ieee154e_vars.state==S_SYNCLISTEN) && (ieee154e_vars.singleChannelChanged == TRUE)) {
+      // turn off the radio (in case it wasn't yet)
+      radio_rfOff();
+      
+      // update record of current channel
+      ieee154e_vars.freq = calculateFrequency(ieee154e_vars.singleChannel);
+      
+      // configure the radio to listen to the default synchronizing channel
+      radio_setFrequency(ieee154e_vars.freq);
+      
+      // switch on the radio in Rx mode.
+      radio_rxEnable();
+      ieee154e_vars.radioOnInit=radio_getTimerValue();
+      ieee154e_vars.radioOnThisSlot=TRUE;
+      radio_rxNow();
+      ieee154e_vars.singleChannelChanged = FALSE;
    }
    
    // increment ASN (used only to schedule serial activity)
@@ -1883,9 +1904,8 @@ port_INLINE void joinPriorityStoreFromEB(uint8_t jp){
 bool isValidJoin(OpenQueueEntry_t* eb, ieee802154_header_iht *parsedHeader) {
    uint16_t              lenIE;
 
-
-   // toss the header in order to get to IEs 
-   packetfunctions_tossHeader(eb, parsedHeader->headerLength); 
+   // toss the header in order to get to IEs
+   packetfunctions_tossHeader(eb, parsedHeader->headerLength);
      
    // process IEs
    // at this stage, this can work only if EB is authenticated but not encrypted
@@ -1912,6 +1932,7 @@ bool isValidJoin(OpenQueueEntry_t* eb, ieee802154_header_iht *parsedHeader) {
 
    return FALSE;
 }
+
 
 port_INLINE void asnStoreFromEB(uint8_t* asn) {
 
@@ -1960,6 +1981,7 @@ void ieee154e_setSingleChannel(uint8_t channel){
         return;
     }
     ieee154e_vars.singleChannel = channel;
+    ieee154e_vars.singleChannelChanged = TRUE;
 }
 
 void ieee154e_setIsSecurityEnabled(bool isEnabled){

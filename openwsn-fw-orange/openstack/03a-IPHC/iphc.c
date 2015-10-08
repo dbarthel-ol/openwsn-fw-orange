@@ -165,7 +165,6 @@ owerror_t iphc_sendFromForwarding(
    
    // decrement the packet's hop limit
    ipv6_outer_header->hop_limit--;
-
    if(packetfunctions_isBroadcastMulticast(&(msg->l3_destinationAdd))==FALSE) {
        next_header=*((uint8_t*)(msg->payload)); // next_header is nhc ipv6 header
    } else {
@@ -205,6 +204,7 @@ owerror_t iphc_sendFromForwarding(
    }
    // report to observer
    owsn_observer_frame_data_update(msg);
+
 
    return sixtop_send(msg);
 }

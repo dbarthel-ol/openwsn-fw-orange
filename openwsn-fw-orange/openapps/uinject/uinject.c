@@ -8,6 +8,7 @@
 #include "scheduler.h"
 #include "IEEE802154E.h"
 #include "idmanager.h"
+#include "observer.h"
 
 //=========================== variables =======================================
 

@@ -14,7 +14,6 @@
 
 #define TIMER_DIO_TIMEOUT         10000
 #define TIMER_DAO_TIMEOUT         60000
-#define TIMER_DIS_TIMEOUT         10000
 
 // Non-Storing Mode of Operation (1)
 #define MOP_DIO_A                 0<<5
@@ -52,11 +51,6 @@
 
 #define Prf_A_dio_options         0<<4
 #define Prf_B_dio_options         0<<3
-
-// DIS
-#define Dis_DisOptions_A          0x00
-#define Dis_DisOptions_B          0x00
-#define Dis_DisOptions_C          0x00
 
 // max number of parents and children to send in DAO
 //section 8.2.1 pag 67 RFC6550 -- using a subset
@@ -140,16 +134,6 @@ typedef struct {
 } icmpv6rpl_dao_target_ht;
 END_PACK
 
-BEGIN_PACK
-typedef struct {
-   uint8_t         flags;
-   uint8_t         reserved;
-   uint8_t         dis_options;    
-} icmpv6rpl_dis_ht;
-END_PACK
-
-
-
 //=========================== module variables ================================
 
 typedef struct {
@@ -159,7 +143,7 @@ typedef struct {
    // DIO-related
    icmpv6rpl_dio_ht          dio;                     ///< pre-populated DIO packet.
    open_addr_t               dioDestination;          ///< IPv6 destination address for DIOs.
-   uint16_t                  dioPeriod;               ///< duration, in ms, of a timerIdDIO timeout.
+   uint32_t                  dioPeriod;               ///< duration, in ms, of a timerIdDIO timeout.
    opentimer_id_t            timerIdDIO;              ///< ID of the timer used to send DIOs.
    uint8_t                   delayDIO;                ///< number of timerIdDIO events before actually sending a DIO.
    // DAO-related
@@ -167,15 +151,8 @@ typedef struct {
    icmpv6rpl_dao_transit_ht  dao_transit;             ///< pre-populated DAO "Transit Info" option header.
    icmpv6rpl_dao_target_ht   dao_target;              ///< pre-populated DAO "Transit Info" option header.
    opentimer_id_t            timerIdDAO;              ///< ID of the timer used to send DAOs.
-   uint16_t                  daoPeriod;               ///< duration, in ms, of a timerIdDAO timeout.
+   uint32_t                  daoPeriod;               ///< duration, in ms, of a timerIdDAO timeout.
    uint8_t                   delayDAO;                ///< number of timerIdDIO events before actually sending a DAO.
-   //DIS-related
-   icmpv6rpl_dis_ht          dis;
-   open_addr_t               disDestination;
-
-   opentimer_id_t            timerIdDIS;
-   uint8_t                   delayDIS;
-   	
 } icmpv6rpl_vars_t;
 
 //=========================== prototypes ======================================
