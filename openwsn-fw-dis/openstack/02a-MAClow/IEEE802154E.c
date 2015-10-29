@@ -16,6 +16,7 @@
 #include "sixtop.h"
 #include "adaptive_sync.h"
 #include "processIE.h"
+#include "observer.h"
 
 //=========================== variables =======================================
 
@@ -107,6 +108,23 @@ Call this function once before any other function in this module, possibly
 during boot-up.
 */
 void ieee154e_init() {
+   open_addr_t* mac_address_64b;
+   open_addr_t* mac_address_16b;
+
+   mac_address_64b = idmanager_getMyID(ADDR_64B);
+   mac_address_16b = idmanager_getMyID(ADDR_16B);
+
+   observer_entity_add(COMPONENT_RADIO, COMPONENT_NAME_RADIO, 3);
+   observer_property_declaration_float(PROPERTY_ENTITY_LEVEL, PROPERTY_NAME_ENTITY_LEVEL, PREFIX_NONE, UNIT_NONE, ENTITY_RADIO_LEVEL);
+   observer_property_declaration_byte_array(PROPERTY_L1_ADDRESS, PROPERTY_NAME_L1_ADDRESS, 8, (uint8_t*)mac_address_64b->addr_64b);
+   observer_property_declaration_ASCII_array(PROPERTY_FRAME_DISSECTOR, PROPERTY_NAME_FRAME_DISSECTOR, strlen(DISSECTOR_NAME_IEEE80215), DISSECTOR_NAME_IEEE80215);
+
+
+   observer_entity_add(COMPONENT_IEEE802154E, COMPONENT_NAME_IEEE802154E, 3);
+   observer_property_declaration_float(PROPERTY_ENTITY_LEVEL, PROPERTY_NAME_ENTITY_LEVEL, PREFIX_NONE, UNIT_NONE, ENTITY_LINK_LEVEL);
+   observer_property_declaration_byte_array(PROPERTY_L2_NODE_ADDRESS_64B, PROPERTY_NAME_L2_NODE_ADDRESS_64B, 8, (uint8_t*)mac_address_64b->addr_64b);
+   observer_property_declaration_byte_array(PROPERTY_L2_NODE_ADDRESS_16B, PROPERTY_NAME_L2_NODE_ADDRESS_16B, 2, (uint8_t*)mac_address_16b->addr_16b);
+
    
    // initialize variables
    memset(&ieee154e_vars,0,sizeof(ieee154e_vars_t));
@@ -446,6 +464,27 @@ port_INLINE void activity_synchronize_newSlot() {
       radio_rxNow();
    }
    
+   // if I'm already in S_SYNCLISTEN, while not synchronized,
+   // but the synchronizing channel has been changed,
+   // change the synchronizing channel
+   if ((ieee154e_vars.state==S_SYNCLISTEN) && (ieee154e_vars.singleChannelChanged == TRUE)) {
+      // turn off the radio (in case it wasn't yet)
+      radio_rfOff();
+      
+      // update record of current channel
+      ieee154e_vars.freq = calculateFrequency(ieee154e_vars.singleChannel);
+      
+      // configure the radio to listen to the default synchronizing channel
+      radio_setFrequency(ieee154e_vars.freq);
+      
+      // switch on the radio in Rx mode.
+      radio_rxEnable();
+      ieee154e_vars.radioOnInit=radio_getTimerValue();
+      ieee154e_vars.radioOnThisSlot=TRUE;
+      radio_rxNow();
+      ieee154e_vars.singleChannelChanged = FALSE;
+   }
+   
    // increment ASN (used only to schedule serial activity)
    incrementAsnOffset();
    
@@ -533,6 +572,11 @@ port_INLINE void activity_synchronize_endOfFrame(PORT_RADIOTIMER_WIDTH capturedT
                                    &ieee154e_vars.dataReceived->l1_rssi,
                                    &ieee154e_vars.dataReceived->l1_lqi,
                                    &ieee154e_vars.dataReceived->l1_crc);
+      //observer report
+      owsn_observer_frame_rx(ieee154e_vars.dataReceived, 3);
+      observer_property_declaration_int8(PROPERTY_L1_RSSI, PROPERTY_NAME_L1_RSSI, PREFIX_NONE, UNIT_DB, ieee154e_vars.dataReceived->l1_rssi);
+      observer_property_declaration_uint8(PROPERTY_L1_LQI, PROPERTY_NAME_L1_LQI, PREFIX_NONE, UNIT_NONE, ieee154e_vars.dataReceived->l1_lqi);
+      observer_property_declaration_boolean(PROPERTY_L1_CRC, PROPERTY_NAME_L1_CRC, ieee154e_vars.dataReceived->l1_crc);
       
       // break if packet too short
       if (ieee154e_vars.dataReceived->length<LENGTH_CRC || ieee154e_vars.dataReceived->length>LENGTH_IEEE154_MAX) {
@@ -565,6 +609,10 @@ port_INLINE void activity_synchronize_endOfFrame(PORT_RADIOTIMER_WIDTH capturedT
       ieee154e_vars.dataReceived->l2_frameType = ieee802514_header.frameType;
       ieee154e_vars.dataReceived->l2_dsn       = ieee802514_header.dsn;
       memcpy(&(ieee154e_vars.dataReceived->l2_nextORpreviousHop),&(ieee802514_header.src),sizeof(open_addr_t));
+      //observer report
+      owsn_observer_frame_property_add(ieee154e_vars.dataReceived, 2);
+      observer_property_declaration_ASCII_array(PROPERTY_L2_FRAME_TYPE, PROPERTY_NAME_L2_FRAME_TYPE, strlen(PROPERTY_NAME_L2_FRAME_TYPE_DATA), PROPERTY_NAME_L2_FRAME_TYPE_DATA);
+      observer_property_declaration_uint8(PROPERTY_L2_FRAME_DSN, PROPERTY_NAME_L2_FRAME_DSN, PREFIX_NONE, UNIT_NONE, ieee154e_vars.dataReceived->l2_dsn);
 
       if (ieee154e_vars.dataReceived->l2_securityLevel != IEEE154_ASH_SLF_TYPE_NOSEC) {
          // If we are not synced, we need to parse IEs and retrieve the ASN
@@ -634,6 +682,7 @@ port_INLINE void activity_synchronize_endOfFrame(PORT_RADIOTIMER_WIDTH capturedT
    } while(0);
    
    // free the (invalid) received data buffer so RAM memory can be recycled
+   owsn_observer_frame_consume(ieee154e_vars.dataReceived);
    openqueue_freePacketBuffer(ieee154e_vars.dataReceived);
    
    // clear local variable
@@ -718,6 +767,7 @@ port_INLINE bool ieee154e_processIEs(OpenQueueEntry_t* pkt, uint16_t* lenIE) {
                   
                   if (idmanager_getIsDAGroot()==FALSE) {
                      // ASN
+                     owsn_observer_frame_property_add(pkt, 2);
                      asnStoreFromEB((uint8_t*)(pkt->payload)+ptr);
                      // ASN is known, but the frame length is not
                      // frame length will be known after parsing the frame and link IE
@@ -726,6 +776,15 @@ port_INLINE bool ieee154e_processIEs(OpenQueueEntry_t* pkt, uint16_t* lenIE) {
                      // join priority
                      joinPriorityStoreFromEB(*((uint8_t*)(pkt->payload)+ptr));
                      ptr = ptr + 1;
+
+                     /*uint64_t obs_asn = (ieee154e_vars.asn.bytes0and1 << 24 && 0xffff000000)
+                            + (ieee154e_vars.asn.bytes2and3 << 8 && 0x0000ffff00)
+                            + (ieee154e_vars.asn.byte4 && 0x00000000ff);
+                     observer_property_declaration_uint64( PROPERTY_L2_FRAME_ASN, PROPERTY_NAME_L2_FRAME_ASN, PREFIX_NONE, UNIT_NONE, obs_asn);
+                     observer_property_declaration_uint8( PROPERTY_L2_FRAME_JOIN_PRIORITY, PROPERTY_NAME_L2_FRAME_JOIN_PRIORITY,
+                                                            PREFIX_NONE, UNIT_NONE,
+                                                            ieee154e_vars.dataReceived->l2_joinPriority);
+                                                            */
                   }
                   break;
                
@@ -978,6 +1037,8 @@ port_INLINE void activity_ti2() {
    // calculate the frequency to transmit on
    ieee154e_vars.freq = calculateFrequency(schedule_getChannelOffset()); 
    
+   // report to observer
+   owsn_observer_frame_tx(ieee154e_vars.dataToSend);
    // configure the radio for that frequency
    radio_setFrequency(ieee154e_vars.freq);
    
@@ -1226,6 +1287,11 @@ port_INLINE void activity_ti9(PORT_RADIOTIMER_WIDTH capturedTime) {
                                    &ieee154e_vars.ackReceived->l1_rssi,
                                    &ieee154e_vars.ackReceived->l1_lqi,
                                    &ieee154e_vars.ackReceived->l1_crc);
+      //observer report
+      owsn_observer_frame_rx(ieee154e_vars.ackReceived, 3);
+      observer_property_declaration_int8(PROPERTY_L1_RSSI, PROPERTY_NAME_L1_RSSI, PREFIX_NONE, UNIT_DB, ieee154e_vars.ackReceived->l1_rssi);
+      observer_property_declaration_uint8(PROPERTY_L1_LQI, PROPERTY_NAME_L1_LQI, PREFIX_NONE, UNIT_NONE, ieee154e_vars.ackReceived->l1_lqi);
+      observer_property_declaration_boolean(PROPERTY_L1_CRC, PROPERTY_NAME_L1_CRC, ieee154e_vars.ackReceived->l1_crc);
       
       // break if wrong length
       if (ieee154e_vars.ackReceived->length<LENGTH_CRC || ieee154e_vars.ackReceived->length>LENGTH_IEEE154_MAX) {
@@ -1258,6 +1324,11 @@ port_INLINE void activity_ti9(PORT_RADIOTIMER_WIDTH capturedTime) {
       // store header details in packet buffer
       ieee154e_vars.ackReceived->l2_frameType  = ieee802514_header.frameType;
       ieee154e_vars.ackReceived->l2_dsn        = ieee802514_header.dsn;
+      //observer report
+      owsn_observer_frame_property_add(ieee154e_vars.ackReceived, 2);
+      observer_property_declaration_ASCII_array(PROPERTY_L2_FRAME_TYPE, PROPERTY_NAME_L2_FRAME_TYPE, strlen(PROPERTY_NAME_L2_FRAME_TYPE_DATA), PROPERTY_NAME_L2_FRAME_TYPE_DATA);
+      observer_property_declaration_uint8(PROPERTY_L2_FRAME_DSN, PROPERTY_NAME_L2_FRAME_DSN, PREFIX_NONE, UNIT_NONE, ieee154e_vars.ackReceived->l2_dsn);
+
       memcpy(&(ieee154e_vars.ackReceived->l2_nextORpreviousHop),&(ieee802514_header.src),sizeof(open_addr_t));
 
       // check the security level of the ACK frame and decrypt/authenticate
@@ -1293,9 +1364,10 @@ port_INLINE void activity_ti9(PORT_RADIOTIMER_WIDTH capturedTime) {
       // in any case, execute the clean-up code below (processing of ACK done)
    } while (0);
    
+   //report to the observer 
+   owsn_observer_frame_consume(ieee154e_vars.ackReceived); 
    // free the received ack so corresponding RAM memory can be recycled
    openqueue_freePacketBuffer(ieee154e_vars.ackReceived);
-   
    // clear local variable
    ieee154e_vars.ackReceived = NULL;
    
@@ -1430,7 +1502,12 @@ port_INLINE void activity_ri5(PORT_RADIOTIMER_WIDTH capturedTime) {
                                    &ieee154e_vars.dataReceived->l1_rssi,
                                    &ieee154e_vars.dataReceived->l1_lqi,
                                    &ieee154e_vars.dataReceived->l1_crc);
-      
+      //observer report
+      owsn_observer_frame_rx(ieee154e_vars.dataReceived, 3);
+      observer_property_declaration_int8(PROPERTY_L1_RSSI, PROPERTY_NAME_L1_RSSI, PREFIX_NONE, UNIT_DB, ieee154e_vars.dataReceived->l1_rssi);
+      observer_property_declaration_uint8(PROPERTY_L1_LQI, PROPERTY_NAME_L1_LQI, PREFIX_NONE, UNIT_NONE, ieee154e_vars.dataReceived->l1_lqi);
+      observer_property_declaration_boolean(PROPERTY_L1_CRC, PROPERTY_NAME_L1_CRC, ieee154e_vars.dataReceived->l1_crc);
+
       // break if wrong length
       if (ieee154e_vars.dataReceived->length<LENGTH_CRC || ieee154e_vars.dataReceived->length>LENGTH_IEEE154_MAX ) {
          // jump to the error code below this do-while loop
@@ -1462,6 +1539,13 @@ port_INLINE void activity_ri5(PORT_RADIOTIMER_WIDTH capturedTime) {
       ieee154e_vars.dataReceived->l2_frameType      = ieee802514_header.frameType;
       ieee154e_vars.dataReceived->l2_dsn            = ieee802514_header.dsn;
       ieee154e_vars.dataReceived->l2_IEListPresent  = ieee802514_header.ieListPresent;
+
+      //observer report
+      owsn_observer_frame_property_add(ieee154e_vars.dataReceived, 2);
+      observer_property_declaration_ASCII_array(PROPERTY_L2_FRAME_TYPE, PROPERTY_NAME_L2_FRAME_TYPE, strlen(PROPERTY_NAME_L2_FRAME_TYPE_DATA), PROPERTY_NAME_L2_FRAME_TYPE_DATA);
+      observer_property_declaration_uint8(PROPERTY_L2_FRAME_DSN, PROPERTY_NAME_L2_FRAME_DSN, PREFIX_NONE, UNIT_NONE, ieee154e_vars.dataReceived->l2_dsn);
+
+
       memcpy(&(ieee154e_vars.dataReceived->l2_nextORpreviousHop),&(ieee802514_header.src),sizeof(open_addr_t));
 
       // if security is enabled, decrypt/authenticate the frame.
@@ -1523,6 +1607,7 @@ port_INLINE void activity_ri5(PORT_RADIOTIMER_WIDTH capturedTime) {
    } while(0);
    
    // free the (invalid) received data so RAM memory can be recycled
+   owsn_observer_frame_consume(ieee154e_vars.dataReceived);
    openqueue_freePacketBuffer(ieee154e_vars.dataReceived);
    
    // clear local variable
@@ -1578,6 +1663,10 @@ port_INLINE void activity_ri6() {
                             &(ieee154e_vars.dataReceived->l2_nextORpreviousHop)
                             );
    
+   owsn_observer_frame_produce(ieee154e_vars.ackToSend, 2);
+   observer_property_declaration_ASCII_array(PROPERTY_L2_FRAME_TYPE, PROPERTY_NAME_L2_FRAME_TYPE, strlen(PROPERTY_NAME_L2_FRAME_TYPE_ACK), PROPERTY_NAME_L2_FRAME_TYPE_ACK);
+   observer_property_declaration_uint8(PROPERTY_L2_FRAME_DSN, PROPERTY_NAME_L2_FRAME_DSN, PREFIX_NONE, UNIT_NONE, ieee154e_vars.dataReceived->l2_dsn);
+
    // if security is enabled, encrypt directly in OpenQueue as there are no retransmissions for ACKs
    if (ieee154e_vars.ackToSend->l2_securityLevel != IEEE154_ASH_SLF_TYPE_NOSEC) {
       if (IEEE802154_SECURITY.outgoingFrame(ieee154e_vars.ackToSend) != E_SUCCESS) {
@@ -1591,6 +1680,9 @@ port_INLINE void activity_ri6() {
   
     // calculate the frequency to transmit on
    ieee154e_vars.freq = calculateFrequency(schedule_getChannelOffset()); 
+
+   // report to observer
+   owsn_observer_frame_tx(ieee154e_vars.ackToSend);
    
    // configure the radio for that frequency
    radio_setFrequency(ieee154e_vars.freq);
@@ -1703,7 +1795,7 @@ port_INLINE void activity_ri9(PORT_RADIOTIMER_WIDTH capturedTime) {
 
 A valid Rx frame satisfies the following constraints:
 - its IEEE802.15.4 header is well formatted
-- it's a DATA of BEACON frame (i.e. not ACK and not COMMAND)
+- it's a DATA or BEACON frame (i.e. not ACK and not COMMAND)
 - it's sent on the same PANid as mine
 - it's for me (unicast or broadcast)
 
@@ -1801,6 +1893,9 @@ port_INLINE uint16_t ieee154e_getTimeCorrection() {
 port_INLINE void joinPriorityStoreFromEB(uint8_t jp){
   ieee154e_vars.dataReceived->l2_joinPriority = jp;
   ieee154e_vars.dataReceived->l2_joinPriorityPresent = TRUE;     
+  observer_property_declaration_uint8( PROPERTY_L2_FRAME_JOIN_PRIORITY, PROPERTY_NAME_L2_FRAME_JOIN_PRIORITY,
+                                                            PREFIX_NONE, UNIT_NONE,
+                                                            jp);
 }
 
 // This function parses IEs from an EB to get to the ASN before security
@@ -1838,14 +1933,20 @@ bool isValidJoin(OpenQueueEntry_t* eb, ieee802154_header_iht *parsedHeader) {
    return FALSE;
 }
 
+
 port_INLINE void asnStoreFromEB(uint8_t* asn) {
-   
-   // store the ASN
+
+	//uint8_t * obs_asn=NULL;
+
    ieee154e_vars.asn.bytes0and1   =     asn[0]+
                                     256*asn[1];
    ieee154e_vars.asn.bytes2and3   =     asn[2]+
                                     256*asn[3];
    ieee154e_vars.asn.byte4        =     asn[4];
+   
+   //ieee154e_getAsn(obs_asn);
+   
+   observer_property_declaration_byte_array( PROPERTY_L2_FRAME_ASN, PROPERTY_NAME_L2_FRAME_ASN, 5, asn);
 }
 
 port_INLINE void ieee154e_syncSlotOffset() {
@@ -1880,6 +1981,7 @@ void ieee154e_setSingleChannel(uint8_t channel){
         return;
     }
     ieee154e_vars.singleChannel = channel;
+    ieee154e_vars.singleChannelChanged = TRUE;
 }
 
 void ieee154e_setIsSecurityEnabled(bool isEnabled){
@@ -1895,6 +1997,7 @@ port_INLINE void timeslotTemplateIDStoreFromEB(uint8_t id){
 port_INLINE void channelhoppingTemplateIDStoreFromEB(uint8_t id){
     ieee154e_vars.chTemplateId = id;
 }
+
 //======= synchronization
 
 void synchronizePacket(PORT_RADIOTIMER_WIDTH timeReceived) {
@@ -2018,6 +2121,8 @@ void notif_sendDone(OpenQueueEntry_t* packetSent, owerror_t error) {
    scheduler_push_task(task_sixtopNotifSendDone,TASKPRIO_SIXTOP_NOTIF_TXDONE);
    // wake up the scheduler
    SCHEDULER_WAKEUP();
+   //GUIGUI 
+   //owsn_observer_frame_tx(packetSent);
 }
 
 void notif_receive(OpenQueueEntry_t* packetReceived) {
@@ -2037,6 +2142,13 @@ void notif_receive(OpenQueueEntry_t* packetReceived) {
    scheduler_push_task(task_sixtopNotifReceive,TASKPRIO_SIXTOP_NOTIF_RX);
    // wake up the scheduler
    SCHEDULER_WAKEUP();
+   //GUIGUI 
+   //TODO: count properties
+   //dataReceived->l1_rssi
+   //l1_lqi,
+   //dataReceived->l1_crc);
+   //owsn_observer_frame_rx(packetReceived,3);
+   
 }
 
 //======= stats

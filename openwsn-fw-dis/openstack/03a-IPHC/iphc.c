@@ -7,6 +7,7 @@
 #include "forwarding.h"
 #include "neighbors.h"
 #include "openbridge.h"
+#include "observer.h"
 #include "icmpv6rpl.h"
 
 //=========================== variables =======================================
@@ -48,6 +49,8 @@ void iphc_retrieveIPv6HopByHopHeader(
 //=========================== public ==========================================
 
 void      iphc_init() {
+   observer_entity_add(COMPONENT_IPHC, COMPONENT_NAME_IPHC, 1);
+   observer_property_declaration_float(PROPERTY_ENTITY_LEVEL, PROPERTY_NAME_ENTITY_LEVEL, PREFIX_NONE, UNIT_NONE, ENTITY_IPHC_LEVEL);
 }
 
 // send from upper layer: I need to add 6LoWPAN header
@@ -162,7 +165,6 @@ owerror_t iphc_sendFromForwarding(
    
    // decrement the packet's hop limit
    ipv6_outer_header->hop_limit--;
-   
    if(packetfunctions_isBroadcastMulticast(&(msg->l3_destinationAdd))==FALSE) {
        next_header=*((uint8_t*)(msg->payload)); // next_header is nhc ipv6 header
    } else {
@@ -200,6 +202,10 @@ owerror_t iphc_sendFromForwarding(
             )==E_FAIL) {
       return E_FAIL;
    }
+   // report to observer
+   owsn_observer_frame_data_update(msg);
+
+
    return sixtop_send(msg);
 }
 
@@ -254,7 +260,8 @@ void iphc_receive(OpenQueueEntry_t* msg) {
             IPv6HOP_HDR_LEN+ipv6_hop_header.HdrExtLen
          );
       }
-      
+      // report to observer
+      owsn_observer_frame_data_update(msg);
       // send up the stack
       forwarding_receive(
          msg,

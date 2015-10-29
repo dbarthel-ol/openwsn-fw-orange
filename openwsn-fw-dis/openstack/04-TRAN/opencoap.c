@@ -8,6 +8,7 @@
 #include "idmanager.h"
 #include "opentimers.h"
 #include "scheduler.h"
+#include "observer.h"
 
 //=========================== defines =========================================
 
@@ -30,6 +31,8 @@ void opencoap_init() {
    
    // initialize the messageID
    opencoap_vars.messageID     = openrandom_get16b();
+   observer_entity_add(COMPONENT_OPENCOAP, COMPONENT_NAME_OPENCOAP, 1);
+   observer_property_declaration_float(PROPERTY_ENTITY_LEVEL, PROPERTY_NAME_ENTITY_LEVEL, PREFIX_NONE, UNIT_NONE, ENTITY_APPLICATION_LEVEL);
 }
 
 /**
@@ -77,6 +80,7 @@ void opencoap_receive(OpenQueueEntry_t* msg) {
          (errorparameter_t)0,
          (errorparameter_t)coap_header.Ver
       );
+      owsn_observer_frame_consume(msg);
       openqueue_freePacketBuffer(msg);
       return;
    }
@@ -217,7 +221,7 @@ void opencoap_receive(OpenQueueEntry_t* msg) {
             }
          }
       };
-      
+      owsn_observer_frame_consume(msg);
       // free the received packet
       openqueue_freePacketBuffer(msg);
       
@@ -233,6 +237,8 @@ void opencoap_receive(OpenQueueEntry_t* msg) {
       outcome = temp_desc->callbackRx(msg,&coap_header,&coap_options[0]);
    } else {
       // reset packet payload (DO NOT DELETE, we will reuse same buffer for response)
+      owsn_observer_frame_consume(msg);
+      openqueue_reusePacketBuffer(msg);
       msg->payload                     = &(msg->packet[127]);
       msg->length                      = 0;
       // set the CoAP header
@@ -275,7 +281,7 @@ void opencoap_receive(OpenQueueEntry_t* msg) {
    msg->payload[2]                  = coap_header.messageID/256;
    msg->payload[3]                  = coap_header.messageID%256;
    memcpy(&msg->payload[4], &coap_header.token[0], coap_header.TKL);
-   
+   owsn_observer_frame_produce(msg,0);
    if ((openudp_send(msg))==E_FAIL) {
       openqueue_freePacketBuffer(msg);
    }
@@ -380,6 +386,8 @@ void opencoap_writeLinks(OpenQueueEntry_t* msg, uint8_t componentID) {
       // iterate to next resource
       temp_resource = temp_resource->next;
    }
+  
+   owsn_observer_frame_produce(msg,0);
 }
 
 /**
@@ -478,7 +486,7 @@ owerror_t opencoap_send(
    msg->payload[3]                  = (request->messageID>>0) & 0xff;
 
    memcpy(&msg->payload[4],&token,request->TKL);
-   
+   owsn_observer_frame_data_update(msg);
    return openudp_send(msg);
 }
 

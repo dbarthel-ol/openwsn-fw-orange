@@ -7,6 +7,7 @@
 #include "opendefs.h"
 //===== drivers
 #include "openserial.h"
+#include "observer.h"
 //===== stack
 #include "openstack.h"
 //-- cross-layer
@@ -46,10 +47,10 @@
 //=========================== private =========================================
 
 void openstack_init(void) {
-   
+
    //===== drivers
    openserial_init();
-   
+   observer_init();
    //===== stack
    //-- cross-layer
    idmanager_init();    // call first since initializes EUI64 and isDAGroot
@@ -76,10 +77,10 @@ void openstack_init(void) {
    opentcp_init();
    openudp_init();
    opencoap_init();     // initialize before any of the CoAP applications
-   
+
    //===== applications
    openapps_init();
-   
+
    openserial_printInfo(
       COMPONENT_OPENWSN,ERR_BOOTED,
       (errorparameter_t)0,

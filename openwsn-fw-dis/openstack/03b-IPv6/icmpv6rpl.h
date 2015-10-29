@@ -12,12 +12,12 @@
 
 //=========================== define ==========================================
 
-// #define TIMER_DIO_TIMEOUT         10000
+#define TIMER_DIO_TIMEOUT         10000
 #define TIMER_DAO_TIMEOUT         60000
 
-#define DIO_INTERVAL_MIN          1000
-#define DIO_INTERVAL_DOUBLINGS    5
-
+//#define DIO_INTERVAL_MIN          1000
+//#define DIO_INTERVAL_DOUBLINGS    5
+#define TIMER_DIS                 50000
 
 // Non-Storing Mode of Operation (1)
 #define MOP_DIO_A                 0<<5
@@ -76,7 +76,7 @@ enum{
   OPTION_TRANSIT_INFORMATION_TYPE   = 0x06,
   OPTION_SOLICITED_INFORMATION_TYPE = 0x07,
 //  OPTION_METRIC_CONTAINER_TYPE      = 0x02,
-//  OPTION_RESPONSE_SPREADING_TYPE    = 0x0A,
+  OPTION_RESPONSE_SPREADING_TYPE    = 0x0A,
 };
 
 //=========================== static ==========================================
@@ -178,12 +178,13 @@ END_PACK
 // } icmpv6rpl_dis_mco;
 // END_PACK
 
-// BEGIN_PACK
-// typedef struct {
-//   uint8_t         type;
-//   uint8_t         optionLength;
-// } icmpv6rpl_dis_rso;
-// END_PACK
+ BEGIN_PACK
+ typedef struct {
+   uint8_t         type;
+   uint8_t         optionLength;
+   uint8_t         spreadingInterval;
+ } icmpv6rpl_dis_rso;
+ END_PACK
 
 //=========================== module variables ================================
 
@@ -195,7 +196,7 @@ typedef struct {
    icmpv6rpl_dio_ht          dio;                     ///< pre-populated DIO packet.
    open_addr_t               dioDestination;          ///< IPv6 destination address for DIOs.
    uint16_t                  dioPeriod;               ///< duration, in ms, of a timerIdDIO timeout.
-   int                       dioDoublings;
+  // int                       dioDoublings;
    opentimer_id_t            timerIdDIO;              ///< ID of the timer used to send DIOs.
    uint8_t                   delayDIO;                ///< number of timerIdDIO events before actually sending a DIO.
    // DAO-related
@@ -208,8 +209,9 @@ typedef struct {
    //DIS-related
    icmpv6rpl_dis_ht          dis;
    icmpv6rpl_dis_sio         dis_solicitedinfo;
+   opentimer_id_t            timerIdDIS; 
   // icmpv6rpl_dis_mco         dis_metriccontainer;
-  // icmpv6rpl_dis_rso         dis_responsesreading;
+   icmpv6rpl_dis_rso         dis_responsesreading;
    open_addr_t               disDestination;
  
    	

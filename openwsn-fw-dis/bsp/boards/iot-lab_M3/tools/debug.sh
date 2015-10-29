@@ -1,7 +1,7 @@
 #!/bin/bash
 
 BIN_FOLDER=${0%/*}
-openocd -f "${BIN_FOLDER}/iot-lab_m3_jtag.cfg" \
+openocd -f "${BIN_FOLDER}/iotlab-m3-jtag.cfg" \
 	-f "target/stm32f1x.cfg" \
 	-c "gdb_port 3123" \
   	-c "tcl_port 4123" \

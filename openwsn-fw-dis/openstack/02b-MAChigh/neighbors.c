@@ -476,7 +476,7 @@ void neighbors_indicateRxDIO(OpenQueueEntry_t* msg) {
                neighbors_vars.neighbors[i].DAGrank = neighbors_vars.dio->rank;
             }
             observer_link_property_update(COMPONENT_ICMPv6RPL, neighbors_vars.neighbors[i].id, 1);
-            observer_property_update_uint8(PROPERTY_L3_LINK_NEIGHBOR_DAGRANK, neighbors_vars.neighbors[i].DAGrank);
+            observer_property_update_uint16(PROPERTY_L3_LINK_NEIGHBOR_DAGRANK, neighbors_vars.neighbors[i].DAGrank);
             break;
          }
       }

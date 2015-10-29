@@ -258,6 +258,7 @@ enum {
 #define PROPERTY_NAME_L3_FRAME_TYPE                       "type"
 #define PROPERTY_NAME_L3_FRAME_TYPE_DIO                   "DIO"
 #define PROPERTY_NAME_L3_FRAME_TYPE_DAO                   "DAO"
+#define PROPERTY_NAME_L3_FRAME_TYPE_DIS                   "DIS"
 #define PROPERTY_NAME_L3_FRAME_DESTINATION_ADDRESS        "destination address"
 #define PROPERTY_NAME_L3_FRAME_SOURCE_ADDRESS             "source address"
 #define PROPERTY_NAME_L3_NODE_ADDRESS                     "address (128bits)"

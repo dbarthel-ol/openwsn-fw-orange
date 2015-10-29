@@ -40,6 +40,8 @@ void sendDIS(void);
 */
 void icmpv6rpl_init() {
    uint8_t         dodagid[16];
+   uint32_t        dioPeriod;
+   uint32_t        daoPeriod;
    
    // retrieve my prefix and EUI64
    memcpy(&dodagid[0],idmanager_getMyID(ADDR_PREFIX)->prefix,8); // prefix
@@ -77,15 +79,15 @@ void icmpv6rpl_init() {
    icmpv6rpl_vars.dioDestination.type = ADDR_128B;
    memcpy(&icmpv6rpl_vars.dioDestination.addr_128b[0],all_routers_multicast,sizeof(all_routers_multicast));
    
-   // icmpv6rpl_vars.dioPeriod                 = TIMER_DIO_TIMEOUT+(openrandom_get16b()&0xff);
-   icmpv6rpl_vars.dioPeriod                 = DIO_INTERVAL_MIN ;
+   icmpv6rpl_vars.dioPeriod                 = TIMER_DIO_TIMEOUT;
+   dioPeriod                                = icmpv6rpl_vars.dioPeriod - 0x80 + (openrandom_get16b()&0xff);
    icmpv6rpl_vars.timerIdDIO                = opentimers_start(
-                                                icmpv6rpl_vars.dioPeriod,
+                                                dioPeriod,
                                                 TIMER_PERIODIC,
                                                 TIME_MS,
                                                 icmpv6rpl_timer_DIO_cb
                                              );
-   icmpv6rpl_vars.dioDoublings              = 0;                                       
+   // icmpv6rpl_vars.dioDoublings              = 0;                                       
    
    //=== DAO
    
@@ -126,9 +128,10 @@ void icmpv6rpl_init() {
    icmpv6rpl_vars.dao_target.flags  = 0;
    icmpv6rpl_vars.dao_target.prefixLength = 0;
    
-   icmpv6rpl_vars.daoPeriod                 = TIMER_DAO_TIMEOUT+(openrandom_get16b()&0xff);
+   icmpv6rpl_vars.daoPeriod                 = TIMER_DAO_TIMEOUT ;
+   daoPeriod                                = icmpv6rpl_vars.daoPeriod - 0x80 + (openrandom_get16b()&0xff);
    icmpv6rpl_vars.timerIdDAO                = opentimers_start(
-                                                icmpv6rpl_vars.daoPeriod,
+                                                daoPeriod,
                                                 TIMER_PERIODIC,
                                                 TIME_MS,
                                                 icmpv6rpl_timer_DAO_cb
@@ -140,7 +143,7 @@ void icmpv6rpl_init() {
    
    // DIS SOLICITED INFORMATION OPTION
    icmpv6rpl_vars.dis_solicitedinfo.type = OPTION_SOLICITED_INFORMATION_TYPE ;
-   icmpv6rpl_vars.dis_solicitedinfo.optionLength =  0x14 ;
+   // icmpv6rpl_vars.dis_solicitedinfo.optionLength =  0x14 ;
    icmpv6rpl_vars.dis_solicitedinfo.rplinstanceId = 0x00 ;  // TODO: put correct value
    icmpv6rpl_vars.dis_solicitedinfo.V_I_D_flags = FLAG_DIS_SIO_A   | \
                                                   FLAG_DIS_SIO_B   | \
@@ -156,6 +159,16 @@ void icmpv6rpl_init() {
       sizeof(icmpv6rpl_vars.dao.DODAGID)
    );  // can be replaced later
    icmpv6rpl_vars.dis_solicitedinfo.verNumb = 0x00 ;  // TODO: put correct value
+   
+   icmpv6rpl_vars.dis_responsesreading.type = OPTION_RESPONSE_SPREADING_TYPE ;
+   icmpv6rpl_vars.dis_responsesreading.spreadingInterval = openrandom_get16b()&0xff ;
+   
+   icmpv6rpl_vars.timerIdDIS                = opentimers_start(
+                                                TIMER_DIS,
+                                                TIMER_PERIODIC,
+                                                TIME_MS,
+                                                icmpv6rpl_timer_DIS_cb
+                                             );
    
    icmpv6rpl_vars.disDestination.type = ADDR_128B;
   // memcpy(&icmpv6rpl_vars.disDestination.addr_128b[0],all_routers_multicast,sizeof(all_routers_multicast));
@@ -222,7 +235,7 @@ void icmpv6rpl_sendDone(OpenQueueEntry_t* msg, owerror_t error) {
 void icmpv6rpl_receive(OpenQueueEntry_t* msg) {
    uint8_t      icmpv6code;
    open_addr_t  myPrefix;
-   open_addr_t  *destination; 
+ //  open_addr_t  *destination; 
    
    // take ownership
    msg->owner      = COMPONENT_ICMPv6RPL;
@@ -232,11 +245,15 @@ void icmpv6rpl_receive(OpenQueueEntry_t* msg) {
    
    // toss ICMPv6 header
    packetfunctions_tossHeader(msg,sizeof(ICMPv6_ht));
+   owsn_observer_frame_data_update(msg);
    
    // handle message
    switch (icmpv6code) {
       
       case IANA_ICMPv6_RPL_DIO:
+         owsn_observer_frame_property_add(msg, 1);
+         observer_property_declaration_ASCII_array(PROPERTY_L3_FRAME_TYPE, PROPERTY_NAME_L3_FRAME_TYPE, strlen(PROPERTY_NAME_L3_FRAME_TYPE_DIO), PROPERTY_NAME_L3_FRAME_TYPE_DIO);
+      
          if (idmanager_getIsDAGroot()==TRUE) {
             // stop here if I'm in the DAG root
             break; // break, don't return
@@ -260,6 +277,8 @@ void icmpv6rpl_receive(OpenQueueEntry_t* msg) {
          break;
       
       case IANA_ICMPv6_RPL_DAO:
+         observer_frame_property_add(COMPONENT_ICMPv6RPL, msg->id, 1);
+         observer_property_declaration_ASCII_array(PROPERTY_L3_FRAME_TYPE, PROPERTY_NAME_L3_FRAME_TYPE, strlen(PROPERTY_NAME_L3_FRAME_TYPE_DAO), PROPERTY_NAME_L3_FRAME_TYPE_DAO);
          // this should never happen
          openserial_printCritical(COMPONENT_ICMPv6RPL,ERR_UNEXPECTED_DAO,
                                (errorparameter_t)0,
@@ -267,16 +286,18 @@ void icmpv6rpl_receive(OpenQueueEntry_t* msg) {
          break;
       
       case IANA_ICMPv6_RPL_DIS: 
+         owsn_observer_frame_property_add(msg, 1);
+         observer_property_declaration_ASCII_array(PROPERTY_L3_FRAME_TYPE, PROPERTY_NAME_L3_FRAME_TYPE, strlen(PROPERTY_NAME_L3_FRAME_TYPE_DIS), PROPERTY_NAME_L3_FRAME_TYPE_DIS);
         // to be complete
-        memcpy(destination,&(msg->l3_destinationAdd),sizeof(open_addr_t));
+  //      memcpy(destination,&(msg->l3_destinationAdd),sizeof(open_addr_t));
         
-        if (destination->addr_128b == all_routers_multicast ){
-          icmpv6rpl_setDIOPeriod(icmpv6rpl_vars.dioPeriod);
-        }
-        else{
+  //      if (destination->addr_128b == all_routers_multicast ){
+  //        icmpv6rpl_setDIOPeriod(icmpv6rpl_vars.dioPeriod);
+  //      }
+  //      else{
           // send unicast DIO as response
-          sendDIO(); // TODO: unicast
-        }
+  //        sendDIO(); // TODO: unicast
+  //      }
         
          break;
       
@@ -315,11 +336,19 @@ void icmpv6rpl_timer_DIO_cb(opentimer_id_t id) {
 \note This function is executed in task context, called by the scheduler.
 */
 void icmpv6rpl_timer_DIO_task() {
-      
+    uint32_t        dioPeriod;  
     // send DIO
     sendDIO();
-    icmpv6rpl_newDIOInterval();
-    icmpv6rpl_setDIOPeriod((uint16_t) icmpv6rpl_vars.dioPeriod);
+    
+    // arm the DIO timer with this new value
+    dioPeriod = icmpv6rpl_vars.dioPeriod - 0x80 + (openrandom_get16b()&0xff);
+    opentimers_setPeriod(
+      icmpv6rpl_vars.timerIdDIO,
+      TIME_MS,
+      dioPeriod
+    );
+    //icmpv6rpl_newDIOInterval();
+    //icmpv6rpl_setDIOPeriod((uint16_t) icmpv6rpl_vars.dioPeriod);
     
     // arm the DIO timer with this new value
     // opentimers_setPeriod(
@@ -405,6 +434,9 @@ void sendDIO() {
    ((ICMPv6_ht*)(msg->payload))->code       = IANA_ICMPv6_RPL_DIO;
    packetfunctions_calculateChecksum(msg,(uint8_t*)&(((ICMPv6_ht*)(msg->payload))->checksum));//call last
    
+   owsn_observer_frame_produce(msg, 1);
+   observer_property_declaration_ASCII_array(PROPERTY_L3_FRAME_TYPE, PROPERTY_NAME_L3_FRAME_TYPE, strlen(PROPERTY_NAME_L3_FRAME_TYPE_DIO), PROPERTY_NAME_L3_FRAME_TYPE_DIO);
+   
    //send
    if (icmpv6_send(msg)!=E_SUCCESS) {
       icmpv6rpl_vars.busySending = FALSE;
@@ -432,15 +464,17 @@ void icmpv6rpl_timer_DAO_cb(opentimer_id_t id) {
 \note This function is executed in task context, called by the scheduler.
 */
 void icmpv6rpl_timer_DAO_task() {
+    uint32_t        daoPeriod;
     
    // send DAO
    sendDAO();
   
    // arm the DAO timer with this new value
+   daoPeriod = icmpv6rpl_vars.daoPeriod - 0x80 + (openrandom_get16b()&0xff);
    opentimers_setPeriod(
       icmpv6rpl_vars.timerIdDAO,
       TIME_MS,
-      icmpv6rpl_vars.daoPeriod
+      daoPeriod
    );
 }
 
@@ -599,6 +633,8 @@ void sendDAO() {
    ((ICMPv6_ht*)(msg->payload))->code       = IANA_ICMPv6_RPL_DAO;
    packetfunctions_calculateChecksum(msg,(uint8_t*)&(((ICMPv6_ht*)(msg->payload))->checksum)); //call last
    
+   owsn_observer_frame_produce(msg, 1);
+   observer_property_declaration_ASCII_array(PROPERTY_L3_FRAME_TYPE, PROPERTY_NAME_L3_FRAME_TYPE, strlen(PROPERTY_NAME_L3_FRAME_TYPE_DAO), PROPERTY_NAME_L3_FRAME_TYPE_DAO);
    //===== send
    if (icmpv6_send(msg)==E_SUCCESS) {
       icmpv6rpl_vars.busySending = TRUE;
@@ -616,25 +652,26 @@ void icmpv6rpl_timer_DIS_cb(opentimer_id_t id) {
 
 void icmpv6rpl_timer_DIS_task() {
 
-    bool        haveParents;
-    uint8_t     nbrIdx;
-    open_addr_t address;
+  //  bool        haveParents;
+  //  uint8_t     nbrIdx;
+  //  open_addr_t address;
    
-    for (nbrIdx=0;nbrIdx<MAXNUMNEIGHBORS;nbrIdx++) {
-      neighbors_getNeighbor(&address,ADDR_64B,nbrIdx)
-    }
-    haveParents = neighbors_isPreferredParent(&address);
+  //  for (nbrIdx=0;nbrIdx<MAXNUMNEIGHBORS;nbrIdx++) {
+  //    neighbors_getNeighbor(&address,ADDR_64B,nbrIdx);
+  //  }
+  //  haveParents = neighbors_isPreferredParent(&address);
       
-     if (haveParents != TRUE) {
+  //   if (haveParents != TRUE) {
   
     // send DIS (multicast)
     sendDIS();
-    
-    
-    return;
+    opentimers_setPeriod(
+       icmpv6rpl_vars.timerIdDIS,
+       TIME_MS,
+       TIMER_DIS
+    );    
 }
 
-}
 
 void sendDIS(){
   OpenQueueEntry_t*    msg;
@@ -694,18 +731,28 @@ void sendDIS(){
    // send multicast DIS
    memcpy(&icmpv6rpl_vars.disDestination.addr_128b[0],all_routers_multicast,sizeof(all_routers_multicast));
    memcpy(&(msg->l3_destinationAdd), &icmpv6rpl_vars.disDestination, sizeof(open_addr_t));
+   
    //===== DIS payload
    
    //TODO: If don't send solicited option, fill the option with 0;
     
    //DIS solicited infomation option 
-   packetfunctions_reserveHeaderSize(msg,sizeof(icmpv6rpl_dis_sio));
-   memcpy(
-     (icmpv6rpl_dis_sio*)(msg->payload),
-     &(icmpv6rpl_vars.dis_solicitedinfo),
-     sizeof(icmpv6rpl_dis_sio)
-   );
+  // packetfunctions_reserveHeaderSize(msg,sizeof(icmpv6rpl_dis_sio));
+  // icmpv6rpl_vars.dis_solicitedinfo.optionLength = sizeof(icmpv6rpl_dis_sio);
+  // memcpy(
+  //   (icmpv6rpl_dis_sio*)(msg->payload),
+  //   &(icmpv6rpl_vars.dis_solicitedinfo),
+  //   sizeof(icmpv6rpl_dis_sio)
+  // );
    
+   //DIS response spreading option 
+  //  packetfunctions_reserveHeaderSize(msg,sizeof(icmpv6rpl_dis_rso));
+  //  icmpv6rpl_vars.dis_responsesreading.optionLength = sizeof(icmpv6rpl_dis_rso);
+  //  memcpy(
+  //   (icmpv6rpl_dis_rso*)(msg->payload),
+  //   &(icmpv6rpl_vars.dis_responsesreading),
+  //   sizeof(icmpv6rpl_dis_rso)
+  // );
   // DIS header
    packetfunctions_reserveHeaderSize(msg,sizeof(icmpv6rpl_dis_ht));
    memcpy(
@@ -720,16 +767,18 @@ void sendDIS(){
    ((ICMPv6_ht*)(msg->payload))->code       = IANA_ICMPv6_RPL_DIS;
    packetfunctions_calculateChecksum(msg,(uint8_t*)&(((ICMPv6_ht*)(msg->payload))->checksum));//call last
 
-   //send
-   if (icmpv6_send(msg)!=E_SUCCESS) {
-      icmpv6rpl_vars.busySending = FALSE;
-      openqueue_freePacketBuffer(msg);
-   } else {
-      icmpv6rpl_vars.busySending = FALSE; 
-   }
+   owsn_observer_frame_produce(msg, 1);
+   observer_property_declaration_ASCII_array(PROPERTY_L3_FRAME_TYPE, PROPERTY_NAME_L3_FRAME_TYPE, strlen(PROPERTY_NAME_L3_FRAME_TYPE_DIS), PROPERTY_NAME_L3_FRAME_TYPE_DIS);
 
+   //send
+  if (icmpv6_send(msg)==E_SUCCESS) {
+      icmpv6rpl_vars.busySending = TRUE;
+   } else {
+      openqueue_freePacketBuffer(msg);
+   }
 }
 
+/**
 uint16_t icmpv6rpl_newDIOInterval(uint16_t dioPeriod){
 
    // uint16_t  dioPeriod ;
@@ -743,22 +792,28 @@ uint16_t icmpv6rpl_newDIOInterval(uint16_t dioPeriod){
     }
     return dioPeriod ;
 }
+*/
 
 void icmpv6rpl_setDIOPeriod(uint16_t dioPeriod){
+    uint32_t        dioPeriodRandom;
     
     icmpv6rpl_vars.dioPeriod = dioPeriod;
+    dioPeriodRandom = icmpv6rpl_vars.dioPeriod - 0x80 + (openrandom_get16b()&0xff);
     opentimers_setPeriod(
         icmpv6rpl_vars.timerIdDIO,
         TIME_MS,
-        icmpv6rpl_vars.dioPeriod
+        dioPeriodRandom
      );
 }
 
 void icmpv6rpl_setDAOPeriod(uint16_t daoPeriod){
+    uint32_t        daoPeriodRandom;
+    
     icmpv6rpl_vars.daoPeriod = daoPeriod;
+    daoPeriodRandom = icmpv6rpl_vars.daoPeriod - 0x80 + (openrandom_get16b()&0xff);
     opentimers_setPeriod(
         icmpv6rpl_vars.timerIdDAO,
         TIME_MS,
-        icmpv6rpl_vars.daoPeriod
+        daoPeriodRandom
      );
 }
