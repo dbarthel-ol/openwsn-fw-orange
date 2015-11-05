@@ -12,11 +12,11 @@
 
 //=========================== define ==========================================
 
-#define TIMER_DIO_TIMEOUT         10000
+#define TIMER_DIO_TIMEOUT         2000
 #define TIMER_DAO_TIMEOUT         60000
 
 //#define DIO_INTERVAL_MIN          1000
-//#define DIO_INTERVAL_DOUBLINGS    5
+#define DIO_DOUBLINGS             5
 #define TIMER_DIS                 50000
 
 // Non-Storing Mode of Operation (1)
@@ -56,6 +56,8 @@
 #define Prf_A_dio_options         0<<4
 #define Prf_B_dio_options         0<<3
 
+#define FLAG_DIS_N                1<<0
+#define FLAG_DIS_T                1<<1
 #define FLAG_DIS_SIO_A            0<<0
 #define FLAG_DIS_SIO_B            0<<1
 #define FLAG_DIS_SIO_C            0<<2
@@ -196,7 +198,7 @@ typedef struct {
    icmpv6rpl_dio_ht          dio;                     ///< pre-populated DIO packet.
    open_addr_t               dioDestination;          ///< IPv6 destination address for DIOs.
    uint16_t                  dioPeriod;               ///< duration, in ms, of a timerIdDIO timeout.
-  // int                       dioDoublings;
+   int                       dioTimerCount;
    opentimer_id_t            timerIdDIO;              ///< ID of the timer used to send DIOs.
    uint8_t                   delayDIO;                ///< number of timerIdDIO events before actually sending a DIO.
    // DAO-related
