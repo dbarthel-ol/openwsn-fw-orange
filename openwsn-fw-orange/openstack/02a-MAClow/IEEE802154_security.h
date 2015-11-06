@@ -18,7 +18,6 @@
 \{
 */
 
-#include "opendefs.h"
 #include "ieee802154_security_driver.h"
 #include "neighbors.h"
 
