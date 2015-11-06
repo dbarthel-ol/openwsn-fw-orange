@@ -9,20 +9,20 @@
 
 //=========================== variables =======================================
 
-neighbors_vars_t neighbors_vars;
+static neighbors_vars_t neighbors_vars;
 
 //=========================== prototypes ======================================
 
-void registerNewNeighbor(
+static void registerNewNeighbor(
         open_addr_t* neighborID,
         int8_t       rssi,
         asn_t*       asnTimestamp,
         bool         joinPrioPresent,
         uint8_t      joinPrio
      );
-bool isNeighbor(open_addr_t* neighbor);
-void removeNeighbor(uint8_t neighborIndex);
-bool isThisRowMatching(
+static bool isNeighbor(open_addr_t* neighbor);
+static void removeNeighbor(uint8_t neighborIndex);
+static bool isThisRowMatching(
         open_addr_t* address,
         uint8_t      rowNumber
      );
@@ -619,7 +619,7 @@ bool debugPrint_neighbors() {
 
 //=========================== private =========================================
 
-void registerNewNeighbor(open_addr_t* address,
+static void registerNewNeighbor(open_addr_t* address,
                          int8_t       rssi,
                          asn_t*       asnTimestamp,
                          bool         joinPrioPresent,
@@ -686,7 +686,7 @@ void registerNewNeighbor(open_addr_t* address,
    }
 }
 
-bool isNeighbor(open_addr_t* neighbor) {
+static bool isNeighbor(open_addr_t* neighbor) {
    uint8_t i=0;
    for (i=0;i<MAXNUMNEIGHBORS;i++) {
       if (isThisRowMatching(neighbor,i)) {
@@ -696,7 +696,7 @@ bool isNeighbor(open_addr_t* neighbor) {
    return FALSE;
 }
 
-void removeNeighbor(uint8_t neighborIndex) {
+static void removeNeighbor(uint8_t neighborIndex) {
    owsn_observer_link_l1_remove(&(neighbors_vars.neighbors[neighborIndex]));
    owsn_observer_link_l2_remove(&(neighbors_vars.neighbors[neighborIndex]));
    if(neighbors_vars.neighbors[neighborIndex].used){
@@ -721,7 +721,7 @@ void removeNeighbor(uint8_t neighborIndex) {
 
 //=========================== helpers =========================================
 
-bool isThisRowMatching(open_addr_t* address, uint8_t rowNumber) {
+static bool isThisRowMatching(open_addr_t* address, uint8_t rowNumber) {
    switch (address->type) {
       case ADDR_64B:
          return neighbors_vars.neighbors[rowNumber].used &&
