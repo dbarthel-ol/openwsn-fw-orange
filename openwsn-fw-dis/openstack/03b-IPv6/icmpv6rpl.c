@@ -15,6 +15,7 @@
 //=========================== variables =======================================
 
 icmpv6rpl_vars_t             icmpv6rpl_vars;
+//icmpv6rpl_vars_t *           icmpv6rpl_vars_p:
 
 //=========================== prototypes ======================================
 
@@ -22,7 +23,7 @@ icmpv6rpl_vars_t             icmpv6rpl_vars;
 void icmpv6rpl_timer_DIO_cb(opentimer_id_t id);
 void icmpv6rpl_timer_DIO_task(void);
 void sendDIO(void);
-uint16_t icmpv6rpl_newDIOInterval(uint16_t dioPeriod);
+void DIO_Trickle_Timer(icmpv6rpl_vars_t* pt);
 void icmpv6rpl_setDIOPeriod(uint16_t dioPeriod);
 // DAO-related
 void icmpv6rpl_timer_DAO_cb(opentimer_id_t id);
@@ -49,6 +50,7 @@ void icmpv6rpl_init() {
    
    //===== reset local variables
    memset(&icmpv6rpl_vars,0,sizeof(icmpv6rpl_vars_t));
+   // icmpv6rpl_vars_p = &icmpv6rpl_vars;
    
    //=== admin
    
@@ -87,7 +89,7 @@ void icmpv6rpl_init() {
                                                 TIME_MS,
                                                 icmpv6rpl_timer_DIO_cb
                                              );
-   // icmpv6rpl_vars.dioDoublings              = 0;                                       
+    icmpv6rpl_vars.dioTimerCount            = 0;                                       
    
    //=== DAO
    
@@ -136,7 +138,7 @@ void icmpv6rpl_init() {
                                                 TIME_MS,
                                                 icmpv6rpl_timer_DAO_cb
                                              );
-   
+  
     //=== DIS
    icmpv6rpl_vars.dis.flags                 = 0x00;
    icmpv6rpl_vars.dis.reserved              = 0x00;
@@ -336,26 +338,13 @@ void icmpv6rpl_timer_DIO_cb(opentimer_id_t id) {
 \note This function is executed in task context, called by the scheduler.
 */
 void icmpv6rpl_timer_DIO_task() {
-    uint32_t        dioPeriod;  
+     
     // send DIO
     sendDIO();
     
     // arm the DIO timer with this new value
-    dioPeriod = icmpv6rpl_vars.dioPeriod - 0x80 + (openrandom_get16b()&0xff);
-    opentimers_setPeriod(
-      icmpv6rpl_vars.timerIdDIO,
-      TIME_MS,
-      dioPeriod
-    );
-    //icmpv6rpl_newDIOInterval();
-    //icmpv6rpl_setDIOPeriod((uint16_t) icmpv6rpl_vars.dioPeriod);
-    
-    // arm the DIO timer with this new value
-    // opentimers_setPeriod(
-    //   icmpv6rpl_vars.timerIdDIO,
-    //   TIME_MS,
-    //   icmpv6rpl_vars.dioPeriod
-    // );
+    DIO_Trickle_Timer(&icmpv6rpl_vars);
+
 }
 
 /**
@@ -732,27 +721,30 @@ void sendDIS(){
    memcpy(&icmpv6rpl_vars.disDestination.addr_128b[0],all_routers_multicast,sizeof(all_routers_multicast));
    memcpy(&(msg->l3_destinationAdd), &icmpv6rpl_vars.disDestination, sizeof(open_addr_t));
    
+   // set N/T flags
+   icmpv6rpl_vars.dis.flags = icmpv6rpl_vars.dis.flags | FLAG_DIS_N;
+   icmpv6rpl_vars.dis.flags = icmpv6rpl_vars.dis.flags | FLAG_DIS_T;
    //===== DIS payload
    
    //TODO: If don't send solicited option, fill the option with 0;
     
    //DIS solicited infomation option 
-  // packetfunctions_reserveHeaderSize(msg,sizeof(icmpv6rpl_dis_sio));
-  // icmpv6rpl_vars.dis_solicitedinfo.optionLength = sizeof(icmpv6rpl_dis_sio);
-  // memcpy(
-  //   (icmpv6rpl_dis_sio*)(msg->payload),
-  //   &(icmpv6rpl_vars.dis_solicitedinfo),
-  //   sizeof(icmpv6rpl_dis_sio)
-  // );
+   packetfunctions_reserveHeaderSize(msg,sizeof(icmpv6rpl_dis_sio));
+   icmpv6rpl_vars.dis_solicitedinfo.optionLength = sizeof(icmpv6rpl_dis_sio);
+   memcpy(
+     (icmpv6rpl_dis_sio*)(msg->payload),
+     &(icmpv6rpl_vars.dis_solicitedinfo),
+     sizeof(icmpv6rpl_dis_sio)
+   );
    
    //DIS response spreading option 
-  //  packetfunctions_reserveHeaderSize(msg,sizeof(icmpv6rpl_dis_rso));
-  //  icmpv6rpl_vars.dis_responsesreading.optionLength = sizeof(icmpv6rpl_dis_rso);
-  //  memcpy(
-  //   (icmpv6rpl_dis_rso*)(msg->payload),
-  //   &(icmpv6rpl_vars.dis_responsesreading),
-  //   sizeof(icmpv6rpl_dis_rso)
-  // );
+    packetfunctions_reserveHeaderSize(msg,sizeof(icmpv6rpl_dis_rso));
+    icmpv6rpl_vars.dis_responsesreading.optionLength = sizeof(icmpv6rpl_dis_rso);
+    memcpy(
+     (icmpv6rpl_dis_rso*)(msg->payload),
+     &(icmpv6rpl_vars.dis_responsesreading),
+     sizeof(icmpv6rpl_dis_rso)
+   );
   // DIS header
    packetfunctions_reserveHeaderSize(msg,sizeof(icmpv6rpl_dis_ht));
    memcpy(
@@ -778,21 +770,26 @@ void sendDIS(){
    }
 }
 
-/**
-uint16_t icmpv6rpl_newDIOInterval(uint16_t dioPeriod){
-
-   // uint16_t  dioPeriod ;
+void DIO_Trickle_Timer(icmpv6rpl_vars_t* pt){
+  int Count;
+  uint16_t dioPeriodCount;
+  uint32_t dioPeriodRandom;
   
-   // dioPeriod = icmpv6rpl_vars.dioPeriod ;
-    
-    dioPeriod = 2*dioPeriod - dioPeriod*openrandom_get16b() / 65535 ;
-    
-    if (dioPeriod > DIO_INTERVAL_MIN*2^DIO_INTERVAL_DOUBLINGS) {
-      dioPeriod = icmpv6rpl_vars.dioPeriod ;
-    }
-    return dioPeriod ;
+  dioPeriodCount = pt->dioPeriod;
+  Count = pt->dioTimerCount;
+  
+  if (Count < DIO_DOUBLINGS) {
+    pt->dioPeriod = 2*dioPeriodCount;
+    pt->dioTimerCount = Count+1;
+  }
+  
+    dioPeriodRandom = pt->dioPeriod - 0x80 + (openrandom_get16b()&0xff);
+    opentimers_setPeriod(
+      icmpv6rpl_vars.timerIdDIO,
+      TIME_MS,
+      dioPeriodRandom
+    );
 }
-*/
 
 void icmpv6rpl_setDIOPeriod(uint16_t dioPeriod){
     uint32_t        dioPeriodRandom;
