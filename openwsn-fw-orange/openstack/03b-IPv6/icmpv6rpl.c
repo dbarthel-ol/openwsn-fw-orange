@@ -132,7 +132,7 @@ void icmpv6rpl_init() {
    observer_entity_add(COMPONENT_ICMPv6RPL, COMPONENT_NAME_ICMPv6RPL,3);
    observer_property_declaration_float(PROPERTY_ENTITY_LEVEL, PROPERTY_NAME_ENTITY_LEVEL, PREFIX_NONE, UNIT_NONE, ENTITY_NETWORK_LEVEL);
    observer_property_declaration_byte_array(PROPERTY_L3_NODE_ADDRESS, PROPERTY_NAME_L3_NODE_ADDRESS, 16, dodagid);
-   observer_property_declaration_uint16(PROPERTY_L3_NODE_DAGRANK, PROPERTY_NAME_L3_NODE_DAGRANK, PREFIX_NONE, UNIT_NONE, DEFAULTDAGRANK);
+   observer_property_declaration_uint16(PROPERTY_L3_NODE_DAGRANK, PROPERTY_NAME_L3_NODE_DAGRANK, PREFIX_NONE, UNIT_NONE, neighbors_getMyDAGrank());
 
 
 }

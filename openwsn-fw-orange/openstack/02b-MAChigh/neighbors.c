@@ -514,6 +514,8 @@ bypassing the routing protocol!
 */
 void neighbors_setMyDAGrank(dagrank_t rank){
     neighbors_vars.myDAGrank = rank;
+    observer_entity_property_update(COMPONENT_ICMPv6RPL, 1);
+    observer_property_update_uint16(PROPERTY_L3_NODE_DAGRANK, neighbors_vars.myDAGrank);
 }
 
 //===== managing routing info
@@ -530,6 +532,7 @@ routing decisions to change. Examples are:
 void neighbors_updateMyDAGrankAndNeighborPreference() {
    uint8_t   i;
    uint16_t  rankIncrease;
+   uint16_t  previousDAGrank;
    uint32_t  tentativeDAGrank; // 32-bit since is used to sum
    uint8_t   prefParentIdx;
    bool      prefParentFound;
@@ -538,11 +541,16 @@ void neighbors_updateMyDAGrankAndNeighborPreference() {
    // if I'm a DAGroot, my DAGrank is always MINHOPRANKINCREASE
    if ((idmanager_getIsDAGroot())==TRUE) {
        // the dagrank is not set through setting command, set rank to MINHOPRANKINCREASE here 
-       neighbors_vars.myDAGrank=MINHOPRANKINCREASE;
+       if (neighbors_vars.myDAGrank!=MINHOPRANKINCREASE) {
+           neighbors_vars.myDAGrank=MINHOPRANKINCREASE;
+           observer_entity_property_update(COMPONENT_ICMPv6RPL, 1);
+           observer_property_update_uint16(PROPERTY_L3_NODE_DAGRANK, neighbors_vars.myDAGrank);
        return;
+       }
    }
    
    // reset my DAG rank to max value. May be lowered below.
+   previousDAGrank = neighbors_vars.myDAGrank;
    neighbors_vars.myDAGrank  = MAXDAGRANK;
    
    // by default, I haven't found a preferred parent
@@ -583,8 +591,10 @@ void neighbors_updateMyDAGrankAndNeighborPreference() {
       neighbors_vars.neighbors[prefParentIdx].stableNeighbor         = TRUE;
       neighbors_vars.neighbors[prefParentIdx].switchStabilityCounter = 0;
    }
-   observer_entity_property_update(COMPONENT_ICMPv6RPL, 1);
-   observer_property_update_uint16(PROPERTY_L3_NODE_DAGRANK, neighbors_vars.myDAGrank);
+   if (neighbors_vars.myDAGrank!=previousDAGrank) {
+       observer_entity_property_update(COMPONENT_ICMPv6RPL, 1);
+       observer_property_update_uint16(PROPERTY_L3_NODE_DAGRANK, neighbors_vars.myDAGrank);
+   }
 
 }
 
