@@ -38,9 +38,12 @@
 //===== applications
 #include "openapps.h"
 
+#define INIT_DLY_TIMER_ms   20000
 //=========================== variables =======================================
+bool  expired;
 
 //=========================== prototypes ======================================
+void cb_timer(opentimer_id_t id);
 
 //=========================== public ==========================================
 
@@ -57,6 +60,16 @@ void openstack_init(void) {
    openqueue_init();
    openrandom_init();
    opentimers_init();
+   //special wait for Dominique
+   expired=FALSE;
+   opentimers_start(
+      INIT_DLY_TIMER_ms,     // duration
+      TIMER_ONESHOT,        // type
+      TIME_MS,               // timetype
+      cb_timer              // callback
+   );
+   while(!expired) {
+   }
    //-- 02a-TSCH
    adaptive_sync_init();
    ieee154e_init();
@@ -87,3 +100,9 @@ void openstack_init(void) {
       (errorparameter_t)0
    );
 }
+//=========================== callbacks =======================================
+
+void cb_timer(opentimer_id_t id) {
+   expired=TRUE;
+}
+
