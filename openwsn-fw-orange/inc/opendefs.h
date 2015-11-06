@@ -190,10 +190,11 @@ enum {
 
    PROPERTY_L3_NODE_ADDRESS                  = 0x35,
    PROPERTY_L3_NODE_DAGRANK                  = 0x36,
+   PROPERTY_L3_NODE_ISROOT                   = 0x37,
 
-   PROPERTY_L3_LINK_PARENT_PREFERENCE        = 0x37,
-   PROPERTY_L3_LINK_NEIGHBOR_DAGRANK         = 0x38,
-   PROPERTY_L3_LINK_PARENT_JOIN_PRIORITY     = 0x39,
+   PROPERTY_L3_LINK_PARENT_PREFERENCE        = 0x38,
+   PROPERTY_L3_LINK_NEIGHBOR_DAGRANK         = 0x39,
+   PROPERTY_L3_LINK_PARENT_JOIN_PRIORITY     = 0x3A,
    // 6TOP
    PROPERTY_L25_MAINTENANCE_PERIOD           = 0x20,
    PROPERTY_L25_KA_PERIOD                    = 0x21,
@@ -262,6 +263,7 @@ enum {
 #define PROPERTY_NAME_L3_FRAME_SOURCE_ADDRESS             "source address"
 #define PROPERTY_NAME_L3_NODE_ADDRESS                     "address (128bits)"
 #define PROPERTY_NAME_L3_NODE_DAGRANK                     "DAG rank"
+#define PROPERTY_NAME_L3_NODE_ISROOT                      "is Root?"
 #define PROPERTY_NAME_L3_LINK_PARENT_PREFERENCE           "parent preference"
 #define PROPERTY_NAME_L3_LINK_NEIGHBOR_DAGRANK            "neighbor DAG rank"
 #define PROPERTY_NAME_L3_LINK_PARENT_JOIN_PRIORITY        "parent join priority"
