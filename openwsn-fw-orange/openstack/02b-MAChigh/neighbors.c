@@ -254,7 +254,7 @@ bool neighbors_isPreferredParent(open_addr_t* address) {
 
 \param[in] index The index of that neighbor in the neighbor table.
 
-\returns TRUE if that neighbor has a lower DAG rank than me, FALSE otherwise.
+\returns TRUE if that neighbor is in use and has a lower DAG rank than me, FALSE otherwise.
 */
 bool neighbors_isNeighborWithLowerDAGrank(uint8_t index) {
    bool    returnVal;
@@ -275,7 +275,7 @@ bool neighbors_isNeighborWithLowerDAGrank(uint8_t index) {
 
 \param[in] index The index of that neighbor in the neighbor table.
 
-\returns TRUE if that neighbor has a lower DAG rank than me, FALSE otherwise.
+\returns TRUE if that neighbor is in use and has a higher DAG rank than me, FALSE otherwise.
 */
 bool neighbors_isNeighborWithHigherDAGrank(uint8_t index) {
    bool    returnVal;
@@ -506,6 +506,12 @@ void  neighbors_getNeighbor(open_addr_t* address, uint8_t addr_type, uint8_t ind
 
 //===== setters
 
+/**
+\brief Direct intervention to set the value of DAG rank in the data structure
+
+Meant for direct control from command on serial port or from test application,
+bypassing the routing protocol!
+*/
 void neighbors_setMyDAGrank(dagrank_t rank){
     neighbors_vars.myDAGrank = rank;
 }
