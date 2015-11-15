@@ -170,7 +170,7 @@ void schedule_setFrameLength(uint16_t frameLength) {return;}
 void icmpv6rpl_writeDODAGid(uint8_t* dodagid) {return;}
 void ieee154e_setIsAckEnabled(bool isEnabled) {return;}
 void ieee154e_getAsn(uint8_t* array) {return;}
-void neighbors_updateMyDAGrankAndNeighborPreference(void) {return;}
+void icmpv6rpl_updateMyDAGrankAndParentSelection(void) {return;}
 void schedule_startDAGroot(void) {return;}
 
 bool debugPrint_asn(void)       {return TRUE;}

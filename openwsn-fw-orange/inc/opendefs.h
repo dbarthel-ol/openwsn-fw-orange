@@ -187,14 +187,13 @@ enum {
    PROPERTY_L3_FRAME_TYPE_DAO                = 0x32,
    PROPERTY_L3_FRAME_DESTINATION_ADDRESS     = 0x33,
    PROPERTY_L3_FRAME_SOURCE_ADDRESS          = 0x34,
+   PROPERTY_L3_FRAME_DIO_DAGRANK             = 0x35,
+   PROPERTY_L3_NODE_ADDRESS                  = 0x36,
+   PROPERTY_L3_NODE_DAGRANK                  = 0x37,
+   PROPERTY_L3_NODE_ISROOT                   = 0x38,
 
-   PROPERTY_L3_NODE_ADDRESS                  = 0x35,
-   PROPERTY_L3_NODE_DAGRANK                  = 0x36,
-   PROPERTY_L3_NODE_ISROOT                   = 0x37,
-
-   PROPERTY_L3_LINK_PARENT_PREFERENCE        = 0x38,
-   PROPERTY_L3_LINK_NEIGHBOR_DAGRANK         = 0x39,
-   PROPERTY_L3_LINK_PARENT_JOIN_PRIORITY     = 0x3A,
+   PROPERTY_L3_LINK_PARENT_PREFERENCE        = 0x39,
+   PROPERTY_L3_LINK_NEIGHBOR_DAGRANK         = 0x3A,
    // 6TOP
    PROPERTY_L25_MAINTENANCE_PERIOD           = 0x20,
    PROPERTY_L25_KA_PERIOD                    = 0x21,
@@ -219,6 +218,7 @@ enum {
    PROPERTY_L2_LINK_NUM_TX_ACK               = 0x2A,
    PROPERTY_L2_LINK_IS_STABLE                = 0x2B,
    PROPERTY_L2_LINK_NUM_STABILITY            = 0x2C,
+   PROPERTY_L2_LINK_PARENT_JOIN_PRIORITY     = 0x2D,
    //Radio
    PROPERTY_L1_TX_POWER                      = 0x10,
    PROPERTY_L1_RSSI                          = 0x11,
@@ -261,12 +261,12 @@ enum {
 #define PROPERTY_NAME_L3_FRAME_TYPE_DAO                   "DAO"
 #define PROPERTY_NAME_L3_FRAME_DESTINATION_ADDRESS        "destination address"
 #define PROPERTY_NAME_L3_FRAME_SOURCE_ADDRESS             "source address"
+#define PROPERTY_NAME_L3_FRAME_DIO_DAGRANK                "DIO DAG rank"
 #define PROPERTY_NAME_L3_NODE_ADDRESS                     "address (128bits)"
 #define PROPERTY_NAME_L3_NODE_DAGRANK                     "DAG rank"
 #define PROPERTY_NAME_L3_NODE_ISROOT                      "is Root?"
 #define PROPERTY_NAME_L3_LINK_PARENT_PREFERENCE           "parent preference"
 #define PROPERTY_NAME_L3_LINK_NEIGHBOR_DAGRANK            "neighbor DAG rank"
-#define PROPERTY_NAME_L3_LINK_PARENT_JOIN_PRIORITY        "parent join priority"
 //6TOP
 #define PROPERTY_NAME_L25_MAINTENANCE_PERIOD             "maintenance period"
 #define PROPERTY_NAME_L25_KA_PERIOD                      "keep alive period"
@@ -292,6 +292,7 @@ enum {
 #define PROPERTY_NAME_L2_LINK_NUM_TX_ACK                  "TX ACK count"
 #define PROPERTY_NAME_L2_LINK_IS_STABLE                   "link stable?"
 #define PROPERTY_NAME_L2_LINK_NUM_STABILITY               "link stability counter"
+#define PROPERTY_NAME_L2_LINK_PARENT_JOIN_PRIORITY        "parent join priority"
 
 //Radio
 #define PROPERTY_NAME_L1_TX_POWER                         "TX power"

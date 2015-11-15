@@ -22,6 +22,9 @@
 #define DEFAULTDAGRANK            MAXDAGRANK
 #define MINHOPRANKINCREASE        256  //default value in RPL and Minimal 6TiSCH draft
 
+// TODO confirm value and move to the right place
+#define DEFAULTJOINPRIO           0xff
+
 //=========================== typedef =========================================
 
 BEGIN_PACK
@@ -47,7 +50,6 @@ typedef struct {
    neighborRow_t        neighbors[MAXNUMNEIGHBORS];
    dagrank_t            myDAGrank;
    uint8_t              debugRow;
-   icmpv6rpl_dio_ht*    dio; //keep it global to be able to debug correctly.
 } neighbors_vars_t;
 
 //=========================== prototypes ======================================
@@ -55,16 +57,16 @@ typedef struct {
 void          neighbors_init(void);
 
 // getters
-dagrank_t     neighbors_getMyDAGrank(void);
+dagrank_t     neighbors_getNeighborRank(uint8_t index);
 uint8_t       neighbors_getNumNeighbors(void);
-bool          neighbors_getPreferredParentEui64(open_addr_t* addressToWrite);
+uint16_t      neighbors_getLinkMetric(uint8_t index);
 open_addr_t*  neighbors_getKANeighbor(uint16_t kaPeriod);
 // setters
-void          neighbors_setMyDAGrank(dagrank_t rank);
+void          neighbors_setNeighborRank(uint8_t index, dagrank_t rank);
 
 // interrogators
 bool          neighbors_isStableNeighbor(open_addr_t* address);
-bool          neighbors_isPreferredParent(open_addr_t* address);
+bool          neighbors_isStableNeighborByIndex(uint8_t index);
 bool          neighbors_isNeighborWithLowerDAGrank(uint8_t index);
 bool          neighbors_isNeighborWithHigherDAGrank(uint8_t index);
 
@@ -82,12 +84,9 @@ void          neighbors_indicateTx(
    bool                 was_finally_acked,
    asn_t*               asnTimestamp
 );
-void          neighbors_indicateRxDIO(OpenQueueEntry_t* msg);
 
 // get addresses
-void          neighbors_getNeighbor(open_addr_t* address,uint8_t addr_type,uint8_t index);
-// managing routing info
-void          neighbors_updateMyDAGrankAndNeighborPreference(void);
+bool          neighbors_getNeighborEui64(open_addr_t* address,uint8_t addr_type,uint8_t index);
 // maintenance
 void          neighbors_removeOld(void);
 // debug

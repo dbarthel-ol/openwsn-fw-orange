@@ -690,24 +690,27 @@ void owsn_observer_link_l1_add(neighborRow_t * neighbor){
    observer_property_declaration_int8(PROPERTY_L1_RSSI, PROPERTY_NAME_L1_RSSI, PREFIX_NONE, UNIT_NONE, neighbor->rssi);
 }
 void owsn_observer_link_l2_add(neighborRow_t * neighbor){
-   observer_link_add(COMPONENT_IEEE802154E, neighbor->id, 0, 1, 5);
+   observer_link_add(COMPONENT_IEEE802154E, neighbor->id, 0, 1, 6);
    observer_property_reference_byte_array(PROPERTY_L2_NODE_ADDRESS_64B, 8, (uint8_t*)&(neighbor->addr_64b.addr_64b));
    observer_property_declaration_boolean(PROPERTY_L2_LINK_IS_STABLE, PROPERTY_NAME_L2_LINK_IS_STABLE, neighbor->stableNeighbor);
    observer_property_declaration_uint8(PROPERTY_L2_LINK_NUM_STABILITY, PROPERTY_NAME_L2_LINK_NUM_STABILITY, PREFIX_NONE, UNIT_NONE, neighbor->switchStabilityCounter);
    observer_property_declaration_uint8(PROPERTY_L2_LINK_NUM_RX, PROPERTY_NAME_L2_LINK_NUM_RX, PREFIX_NONE, UNIT_NONE, neighbor->numRx);
    observer_property_declaration_uint8(PROPERTY_L2_LINK_NUM_TX, PROPERTY_NAME_L2_LINK_NUM_TX, PREFIX_NONE, UNIT_NONE, neighbor->numTx);
    observer_property_declaration_uint8(PROPERTY_L2_LINK_NUM_TX_ACK, PROPERTY_NAME_L2_LINK_NUM_TX_ACK, PREFIX_NONE, UNIT_NONE, neighbor->numTxACK);
+   observer_property_declaration_uint8(PROPERTY_L2_LINK_PARENT_JOIN_PRIORITY, PROPERTY_NAME_L2_LINK_PARENT_JOIN_PRIORITY, PREFIX_NONE, UNIT_NONE, neighbor->joinPrio);
 }
-void owsn_observer_link_l3_add(neighborRow_t * neighbor){
-   uint8_t address[16];
+void owsn_observer_link_l3_add(uint8_t id, open_addr_t * address, dagrank_t rank){
+   uint8_t address128b[16];
 
-   memcpy(address, idmanager_getMyID(ADDR_PREFIX)->prefix, 8);
-   memcpy(address+8, &(neighbor->addr_64b.addr_64b), 8);
-   observer_link_add(COMPONENT_ICMPv6RPL, neighbor->id, 0, 1, 3);
-   observer_property_reference_byte_array(PROPERTY_L3_NODE_ADDRESS, 16, address);
-   observer_property_declaration_uint8(PROPERTY_L3_LINK_PARENT_PREFERENCE, PROPERTY_NAME_L3_LINK_PARENT_PREFERENCE, PREFIX_NONE, UNIT_NONE, neighbor->parentPreference);
-   observer_property_declaration_uint16(PROPERTY_L3_LINK_NEIGHBOR_DAGRANK, PROPERTY_NAME_L3_LINK_NEIGHBOR_DAGRANK, PREFIX_NONE, UNIT_NONE, neighbor->DAGrank);
-   observer_property_declaration_uint8(PROPERTY_L3_LINK_PARENT_JOIN_PRIORITY, PROPERTY_NAME_L3_LINK_PARENT_JOIN_PRIORITY, PREFIX_NONE, UNIT_NONE, neighbor->joinPrio);
+   memcpy(address128b, idmanager_getMyID(ADDR_PREFIX)->prefix, 8);
+// memcpy(address128b+8, &(neighbor->addr_64b.addr_64b), 8);
+   memcpy(address128b+8, &(address->addr_64b), 8);
+// observer_link_add(COMPONENT_ICMPv6RPL, neighbor->id, 0, 1, 3);
+   observer_link_add(COMPONENT_ICMPv6RPL, id, 0, 1, 1);
+   observer_property_reference_byte_array(PROPERTY_L3_NODE_ADDRESS, 16, address128b);
+// observer_property_declaration_uint8(PROPERTY_L3_LINK_PARENT_PREFERENCE, PROPERTY_NAME_L3_LINK_PARENT_PREFERENCE, PREFIX_NONE, UNIT_NONE, neighbor->parentPreference);
+   observer_property_declaration_uint16(PROPERTY_L3_LINK_NEIGHBOR_DAGRANK, PROPERTY_NAME_L3_LINK_NEIGHBOR_DAGRANK, PREFIX_NONE, UNIT_NONE, rank);
+// observer_property_declaration_uint8(PROPERTY_L3_LINK_PARENT_JOIN_PRIORITY, PROPERTY_NAME_L3_LINK_PARENT_JOIN_PRIORITY, PREFIX_NONE, UNIT_NONE, neighbor->joinPrio);
 }
 
 void owsn_observer_link_l1_remove(neighborRow_t * neighbor){
@@ -718,8 +721,8 @@ void owsn_observer_link_l2_remove(neighborRow_t * neighbor){
    observer_link_remove(COMPONENT_IEEE802154E, neighbor->id);
 }
 
-void owsn_observer_link_l3_remove(neighborRow_t * neighbor){
-   observer_link_remove(COMPONENT_ICMPv6RPL, neighbor->id);
+void owsn_observer_link_l3_remove(uint8_t id){
+   observer_link_remove(COMPONENT_ICMPv6RPL, id);
 }
 
 

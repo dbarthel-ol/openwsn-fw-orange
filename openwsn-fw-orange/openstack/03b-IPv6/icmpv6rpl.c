@@ -18,6 +18,8 @@ icmpv6rpl_vars_t             icmpv6rpl_vars;
 
 //=========================== prototypes ======================================
 
+// routing-related
+void icmpv6rpl_updateMyDAGrankAndParentSelection(void);
 // DIO-related
 void icmpv6rpl_timer_DIO_cb(opentimer_id_t id);
 void icmpv6rpl_timer_DIO_task(void);
@@ -44,6 +46,14 @@ void icmpv6rpl_init() {
    //===== reset local variables
    memset(&icmpv6rpl_vars,0,sizeof(icmpv6rpl_vars_t));
    
+   //=== routing
+   icmpv6rpl_vars.haveParent=FALSE;
+   if (idmanager_getIsDAGroot()==TRUE) {
+      icmpv6rpl_vars.myDAGrank=MINHOPRANKINCREASE;
+   } else {
+      icmpv6rpl_vars.myDAGrank=DEFAULTDAGRANK;
+   }
+
    //=== admin
    
    icmpv6rpl_vars.busySending               = FALSE;
@@ -133,7 +143,7 @@ void icmpv6rpl_init() {
    observer_property_declaration_float(PROPERTY_ENTITY_LEVEL, PROPERTY_NAME_ENTITY_LEVEL, PREFIX_NONE, UNIT_NONE, ENTITY_NETWORK_LEVEL);
    observer_property_declaration_boolean(PROPERTY_L3_NODE_ISROOT, PROPERTY_NAME_L3_NODE_ISROOT, idmanager_getIsDAGroot());
    observer_property_declaration_byte_array(PROPERTY_L3_NODE_ADDRESS, PROPERTY_NAME_L3_NODE_ADDRESS, 16, dodagid);
-   observer_property_declaration_uint16(PROPERTY_L3_NODE_DAGRANK, PROPERTY_NAME_L3_NODE_DAGRANK, PREFIX_NONE, UNIT_NONE, neighbors_getMyDAGrank());
+   observer_property_declaration_uint16(PROPERTY_L3_NODE_DAGRANK, PROPERTY_NAME_L3_NODE_DAGRANK, PREFIX_NONE, UNIT_NONE, icmpv6rpl_getMyDAGrank());
 
 
 }
@@ -215,8 +225,8 @@ void icmpv6rpl_receive(OpenQueueEntry_t* msg) {
             break; // break, don't return
          }
          
-         // update neighbor table
-         neighbors_indicateRxDIO(msg);
+         // update routing info for that neighbor
+         icmpv6rpl_indicateRxDIO(msg);
          
          // write DODAGID in DIO and DAO
          icmpv6rpl_writeDODAGid(&(((icmpv6rpl_dio_ht*)(msg->payload))->DODAGID[0]));
@@ -233,7 +243,7 @@ void icmpv6rpl_receive(OpenQueueEntry_t* msg) {
          break;
       
       case IANA_ICMPv6_RPL_DAO:
-        observer_frame_property_add(COMPONENT_ICMPv6RPL, msg->id, 1);
+         observer_frame_property_add(COMPONENT_ICMPv6RPL, msg->id, 1);
          observer_property_declaration_ASCII_array(PROPERTY_L3_FRAME_TYPE, PROPERTY_NAME_L3_FRAME_TYPE, strlen(PROPERTY_NAME_L3_FRAME_TYPE_DAO), PROPERTY_NAME_L3_FRAME_TYPE_DAO);
          // this should never happen
          openserial_printCritical(COMPONENT_ICMPv6RPL,ERR_UNEXPECTED_DAO,
@@ -254,6 +264,230 @@ void icmpv6rpl_receive(OpenQueueEntry_t* msg) {
    //owsn_observer_frame_consume(msg);
    observer_frame_consume(COMPONENT_ICMPv6RPL, msg->id, msg->length, msg->payload);
    openqueue_freePacketBuffer(msg);
+}
+
+/**
+\brief Retrieve this mote's parent index in neighbor table.
+
+\returns TRUE and index of parent if have one, FALSE if no parent
+*/
+bool icmpv6rpl_getPreferredParentIndex(uint8_t* indexptr) {
+   *indexptr = icmpv6rpl_vars.ParentIndex;
+   return icmpv6rpl_vars.haveParent;
+}
+
+/**
+\brief Retrieve my preferred parent's EUI64 address.
+\param[out] addressToWrite Where to copy the preferred parent's address to.
+*/
+bool icmpv6rpl_getPreferredParentEui64(open_addr_t* addressToWrite) {
+   if (icmpv6rpl_vars.haveParent){
+       return neighbors_getNeighborEui64(addressToWrite,ADDR_64B,icmpv6rpl_vars.ParentIndex);
+   }
+   else return FALSE;
+}
+
+/**
+\brief Indicate whether some neighbor is the routing parent.
+
+\param[in] address The EUI64 address of the neighbor.
+
+\returns TRUE if that neighbor is preferred parent, FALSE otherwise.
+*/
+bool icmpv6rpl_isPreferredParent(open_addr_t* address) {
+   open_addr_t  temp;
+   // do we currently have a parent?
+   if (icmpv6rpl_vars.haveParent==FALSE) return FALSE;
+   //compare parent address to the one presented.
+   switch (address->type) {
+      case ADDR_64B:
+         neighbors_getNeighborEui64(&temp,ADDR_64B,icmpv6rpl_vars.ParentIndex);
+         return packetfunctions_sameAddress(address,&temp);
+      default:
+         openserial_printCritical(COMPONENT_NEIGHBORS,ERR_WRONG_ADDR_TYPE,
+                               (errorparameter_t)address->type,
+                               (errorparameter_t)3);
+         return FALSE;
+   }
+}
+
+/**
+\brief Retrieve this mote's current DAG rank.
+
+\returns This mote's current DAG rank.
+*/
+dagrank_t icmpv6rpl_getMyDAGrank() {
+   return icmpv6rpl_vars.myDAGrank;
+}
+
+/**
+\brief Direct intervention to set the value of DAG rank in the data structure
+
+Meant for direct control from command on serial port or from test application,
+bypassing the routing protocol!
+*/
+void icmpv6rpl_setMyDAGrank(dagrank_t rank){
+    icmpv6rpl_vars.myDAGrank = rank;
+    observer_entity_property_update(COMPONENT_ICMPv6RPL, 1);
+    observer_property_update_uint16(PROPERTY_L3_NODE_DAGRANK, icmpv6rpl_vars.myDAGrank);
+}
+
+/**
+\brief Routing algorithm
+*/
+void icmpv6rpl_updateMyDAGrankAndParentSelection() {
+   uint8_t   i;
+   uint16_t  previousDAGrank;
+   uint8_t   prevParentIndex;
+   bool      prevHadParent;
+   bool      foundBetterParent;
+   // temporaries
+   uint16_t  rankIncrease;
+   dagrank_t neighborRank;
+   uint32_t  tentativeDAGrank;
+   
+   // if I'm a DAGroot, my DAGrank is always MINHOPRANKINCREASE
+   if ((idmanager_getIsDAGroot())==TRUE) {
+       // the dagrank is not set through setting command, set rank to MINHOPRANKINCREASE here 
+       if (icmpv6rpl_vars.myDAGrank!=MINHOPRANKINCREASE) { // test for change so as not to report unchanged value when root
+           icmpv6rpl_vars.myDAGrank=MINHOPRANKINCREASE;
+           observer_entity_property_update(COMPONENT_ICMPv6RPL, 1);
+           observer_property_update_uint16(PROPERTY_L3_NODE_DAGRANK, icmpv6rpl_vars.myDAGrank);
+       return;
+       }
+   }
+
+   // prep for loop, remember state before neighbor table scanning
+   previousDAGrank      = icmpv6rpl_vars.myDAGrank;
+   prevParentIndex      = icmpv6rpl_vars.ParentIndex;
+   prevHadParent        = icmpv6rpl_vars.haveParent;
+   foundBetterParent    = FALSE;
+   icmpv6rpl_vars.haveParent = FALSE;
+   
+   // loop through neighbor table, update myDAGrank
+   for (i=0;i<MAXNUMNEIGHBORS;i++) {
+      if (neighbors_isStableNeighborByIndex(i)) { // in use and link is stable
+         // get link cost to this neighbor
+         rankIncrease=neighbors_getLinkMetric(i);
+         // if this link cost is too high, pass on this neighbor
+         // TODO
+         // get this neighbor's advertized rank
+         neighborRank=neighbors_getNeighborRank(i);
+         // if this neighbor has unknown/infinite rank, pass on it
+         if (neighborRank==DEFAULTDAGRANK) continue;
+         // compute tentative cost of full path to root through this neighbor
+         tentativeDAGrank = (uint32_t)neighborRank+rankIncrease;
+         if (tentativeDAGrank > 65535) {tentativeDAGrank = 65535;}
+         // if not low enough to justify switch, pass (i.e. hysterisis)
+         //if ((previousDAGrank<tentativeDAGrank) ||
+         // next line is wrong, difference can be negative
+         //    (tentativeDAGrank-previousDAGrank < 2*MINHOPRANKINCREASE)) continue;
+         // remember that we have at least one valid candidate parent
+         foundBetterParent=TRUE;
+         // select best candidate so far
+         if (icmpv6rpl_vars.myDAGrank>tentativeDAGrank) {
+            icmpv6rpl_vars.myDAGrank   = (uint16_t)tentativeDAGrank;
+            icmpv6rpl_vars.ParentIndex = i;
+         }
+      }
+   } 
+   
+   if (foundBetterParent) {
+      icmpv6rpl_vars.haveParent=TRUE;
+      if (!prevHadParent) {
+         // only report on link creation
+         open_addr_t addr;
+         neighbors_getNeighborEui64(&addr,ADDR_64B,icmpv6rpl_vars.ParentIndex);
+         owsn_observer_link_l3_add(icmpv6rpl_vars.ParentIndex, &addr, icmpv6rpl_vars.myDAGrank);
+      } else {
+         if (icmpv6rpl_vars.ParentIndex==prevParentIndex) {
+            // report on the rank change if any, not on the deletion/creation of parent
+               if (icmpv6rpl_vars.myDAGrank!=previousDAGrank) {
+                  observer_link_property_update(COMPONENT_ICMPv6RPL, icmpv6rpl_vars.ParentIndex, 1);
+                  observer_property_update_uint16(PROPERTY_L3_LINK_NEIGHBOR_DAGRANK, neighbors_getNeighborRank(icmpv6rpl_vars.ParentIndex));
+                  observer_entity_property_update(COMPONENT_ICMPv6RPL, 1);
+                  observer_property_update_uint16(PROPERTY_L3_NODE_DAGRANK, icmpv6rpl_vars.myDAGrank);
+               } else ;// same parent, same rank, nothing to report about 
+         } else {
+            // report on deletion of parent
+            owsn_observer_link_l3_remove(prevParentIndex);
+            // report on creation of new parent
+            open_addr_t addr;
+            neighbors_getNeighborEui64(&addr,ADDR_64B,icmpv6rpl_vars.ParentIndex);
+            owsn_observer_link_l3_add(icmpv6rpl_vars.ParentIndex, &addr, icmpv6rpl_vars.myDAGrank);
+         }
+      }
+   } else {
+      // restore routing table as we found it on entry
+      icmpv6rpl_vars.myDAGrank   = previousDAGrank;
+      icmpv6rpl_vars.ParentIndex = prevParentIndex;
+      icmpv6rpl_vars.haveParent  = prevHadParent;
+      // no change to report on
+   }
+return;
+}
+
+/**
+\brief Indicate I just received a RPL DIO from a neighbor.
+
+This function should be called for each received a DIO is received so neighbor
+routing information in the neighbor table can be updated.
+
+The fields which are updated are:
+- DAGrank
+
+\param[in] msg The received message with msg->payload pointing to the DIO
+   header.
+*/
+void icmpv6rpl_indicateRxDIO(OpenQueueEntry_t* msg) {
+   uint8_t          i;
+   uint8_t          temp_8b;
+   dagrank_t        neighborRank;
+   open_addr_t      NeighborAddress;
+  
+   // take ownership over the packet
+   msg->owner = COMPONENT_NEIGHBORS;
+   
+   // save pointer to incoming DIO header in global structure for simplfying debug.
+   icmpv6rpl_vars.incomingDio = (icmpv6rpl_dio_ht*)(msg->payload);
+   // quick fix: rank is two bytes in network order: need to swap bytes
+   temp_8b            = *(msg->payload+2);
+   icmpv6rpl_vars.incomingDio->rank = (temp_8b << 8) + *(msg->payload+3);
+   //owsn_observer_frame_property_add(msg, 1);
+   //observer_property_declaration_uint16(PROPERTY_L3_FRAME_DIO_DAGRANK, PROPERTY_NAME_L3_FRAME_DIO_DAGRANK, PREFIX_NONE, UNIT_NONE, (uint16_t) icmpv6rpl_vars.incomingDio->rank);
+   // update rank of that neighbor in table
+   for (i=0;i<MAXNUMNEIGHBORS;i++) {
+      if (neighbors_getNeighborEui64(&NeighborAddress, ADDR_64B, i)) { // this neighbor entry is in use
+         if (packetfunctions_sameAddress(&(msg->l2_nextORpreviousHop),&NeighborAddress)) { // matching address
+            neighborRank=neighbors_getNeighborRank(i);
+            if (
+              (icmpv6rpl_vars.incomingDio->rank > neighborRank) &&
+              (icmpv6rpl_vars.incomingDio->rank - neighborRank) > (DEFAULTLINKCOST*2*MINHOPRANKINCREASE)
+              ) {
+               // the new DAGrank looks suspiciously high, only increment a bit
+               neighbors_setNeighborRank(i,neighborRank + (DEFAULTLINKCOST*2*MINHOPRANKINCREASE));
+               openserial_printError(COMPONENT_NEIGHBORS,ERR_LARGE_DAGRANK,
+                               (errorparameter_t)icmpv6rpl_vars.incomingDio->rank,
+                               (errorparameter_t)neighborRank);
+            } else {
+               neighbors_setNeighborRank(i,icmpv6rpl_vars.incomingDio->rank);
+            }
+            // since changes were made to neighbors DAG rank, run the routing algorithm again
+            icmpv6rpl_updateMyDAGrankAndParentSelection(); 
+            break; // there should be only one matching entry, no need to loop further
+         }
+      }
+   } 
+}
+
+void icmpv6rpl_killPreferredParent() {
+    icmpv6rpl_vars.haveParent=FALSE;
+    owsn_observer_link_l3_remove(icmpv6rpl_vars.ParentIndex);
+    if (idmanager_getIsDAGroot()==TRUE) {
+       icmpv6rpl_vars.myDAGrank=MINHOPRANKINCREASE;
+    } else {
+       icmpv6rpl_vars.myDAGrank=DEFAULTDAGRANK;
+    }
 }
 
 //=========================== private =========================================
@@ -309,7 +543,7 @@ void sendDIO() {
    }
    
    // do not send DIO if I have the default DAG rank
-   if (neighbors_getMyDAGrank()==DEFAULTDAGRANK) {
+   if (icmpv6rpl_getMyDAGrank()==DEFAULTDAGRANK) {
       return;
    }
    
@@ -347,7 +581,7 @@ void sendDIO() {
    
    //===== DIO payload
    // note: DIO is already mostly populated
-   icmpv6rpl_vars.dio.rank                  = neighbors_getMyDAGrank();
+   icmpv6rpl_vars.dio.rank                  = icmpv6rpl_getMyDAGrank();
    packetfunctions_reserveHeaderSize(msg,sizeof(icmpv6rpl_dio_ht));
    memcpy(
       ((icmpv6rpl_dio_ht*)(msg->payload)),
@@ -437,7 +671,7 @@ void sendDAO() {
    }
    
    // dont' send a DAO if you did not acquire a DAGrank
-   if (neighbors_getMyDAGrank()==DEFAULTDAGRANK) {
+   if (icmpv6rpl_getMyDAGrank()==DEFAULTDAGRANK) {
        return;
    }
    
@@ -476,7 +710,7 @@ void sendDAO() {
    //=== transit option -- from RFC 6550, page 55 - 1 transit information header per parent is required. 
    //getting only preferred parent as transit
    numTransitParents=0;
-   neighbors_getPreferredParentEui64(&address);
+   icmpv6rpl_getPreferredParentEui64(&address);
    packetfunctions_writeAddress(msg,&address,OW_BIG_ENDIAN);
    prefix=idmanager_getMyID(ADDR_PREFIX);
    packetfunctions_writeAddress(msg,prefix,OW_BIG_ENDIAN);
@@ -508,7 +742,7 @@ void sendDAO() {
          // this neighbor is of higher DAGrank as I am. so it is my child
          
          // write it's address in DAO RFC6550 page 80 check point 1.
-         neighbors_getNeighbor(&address,ADDR_64B,nbrIdx); 
+         neighbors_getNeighborEui64(&address,ADDR_64B,nbrIdx); 
          packetfunctions_writeAddress(msg,&address,OW_BIG_ENDIAN);
          prefix=idmanager_getMyID(ADDR_PREFIX);
          packetfunctions_writeAddress(msg,prefix,OW_BIG_ENDIAN);

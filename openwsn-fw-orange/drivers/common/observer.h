@@ -105,7 +105,7 @@ void owsn_observer_frame_consume(OpenQueueEntry_t *packet);
 
 void owsn_observer_link_l1_add(neighborRow_t * neighbor);
 void owsn_observer_link_l2_add(neighborRow_t * neighbor);
-void owsn_observer_link_l3_add(neighborRow_t * neighbor);
+void owsn_observer_link_l3_add(uint8_t id, open_addr_t * address, dagrank_t rank);
 void owsn_observer_link_l1_remove(neighborRow_t * neighbor);
 void owsn_observer_link_l2_remove(neighborRow_t * neighbor);
-void owsn_observer_link_l3_remove(neighborRow_t * neighbor);
+void owsn_observer_link_l3_remove(uint8_t id);

@@ -31,7 +31,7 @@ void otf_addCell_task(void) {
    bool                 foundNeighbor;
    
    // get preferred parent
-   foundNeighbor = neighbors_getPreferredParentEui64(&neighbor);
+   foundNeighbor = icmpv6rpl_getPreferredParentEui64(&neighbor);
    if (foundNeighbor==FALSE) {
       return;
    }
@@ -49,7 +49,7 @@ void otf_removeCell_task(void) {
    bool                 foundNeighbor;
    
    // get preferred parent
-   foundNeighbor = neighbors_getPreferredParentEui64(&neighbor);
+   foundNeighbor = icmpv6rpl_getPreferredParentEui64(&neighbor);
    if (foundNeighbor==FALSE) {
       return;
    }
