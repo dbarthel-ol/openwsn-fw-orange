@@ -225,13 +225,7 @@ void icmpv6rpl_receive(OpenQueueEntry_t* msg) {
             break; // break, don't return
          }
          
-         // update routing info for that neighbor
-         icmpv6rpl_indicateRxDIO(msg);
-         
-         // write DODAGID in DIO and DAO
-         icmpv6rpl_writeDODAGid(&(((icmpv6rpl_dio_ht*)(msg->payload))->DODAGID[0]));
-         
-         // update my prefix
+         // update my prefix // looks like we adopt the prefix fron any DIO without a question about this node being our parent??
          myPrefix.type = ADDR_PREFIX;
          memcpy(
             myPrefix.prefix,
@@ -239,6 +233,12 @@ void icmpv6rpl_receive(OpenQueueEntry_t* msg) {
             sizeof(myPrefix.prefix)
          );
          idmanager_setMyID(&myPrefix);
+         
+         // update routing info for that neighbor
+         icmpv6rpl_indicateRxDIO(msg);
+         
+         // write DODAGID in DIO and DAO
+         icmpv6rpl_writeDODAGid(&(((icmpv6rpl_dio_ht*)(msg->payload))->DODAGID[0]));
          
          break;
       
